@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -9,7 +10,7 @@ from .conversion import convert_pdf_to_epub
 from .library import LibraryStore
 from .models import BookMetadata
 from .naming import render_name, resolve_collision
-from .ollama import OllamaClient
+from .ollama import PROMPT_VERSION, OllamaClient
 from .zlibrary import ZLibraryAdapter
 
 
@@ -98,12 +99,28 @@ class WorkbenchService:
             )
         finally:
             client.close()
+        result = json.loads(files.metadata.read_text(encoding="utf-8"))["result"]
+        categories = result.get("categories", [])
+        if not isinstance(categories, list):
+            categories = []
+        analysis = self.library.apply_analysis(
+            path,
+            categories=categories,
+            reports=[
+                ("summary", files.markdown),
+                ("mindmap", files.mindmap),
+                ("analysis_metadata", files.metadata),
+            ],
+            model=self.config.ollama.model,
+            prompt_version=PROMPT_VERSION,
+        )
         return {
             "ok": True,
             "markdown": str(files.markdown),
             "mindmap": str(files.mindmap),
             "metadata": str(files.metadata),
             "model": self.config.ollama.model,
+            "library": analysis,
         }
 
     def audiosmith(self) -> AudioSmithClient:

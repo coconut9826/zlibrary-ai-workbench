@@ -69,6 +69,30 @@ class LibraryTests(unittest.TestCase):
             self.assertEqual(books[0]["title"], "测试书")
             self.assertEqual(books[0]["files"][0]["sha256"], result["sha256"])
 
+    def test_analysis_updates_categories_and_registers_reports(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "library"
+            incoming = Path(directory) / "incoming.epub"
+            incoming.write_bytes(b"EPUB-test")
+            report = root / "reports" / "report.md"
+            report.parent.mkdir(parents=True)
+            report.write_text("summary", encoding="utf-8")
+            store = LibraryStore(AppConfig(paths=PathsConfig(library_root=root)))
+            result = store.ingest_file(
+                incoming, BookMetadata(title="分析书", format="epub", id="book-1")
+            )
+            attached = store.apply_analysis(
+                Path(result["path"]),
+                categories=[" 科技 ", "科技", "", "社会"],
+                reports=[("summary", report)],
+                model="qwen3.5:9b",
+                prompt_version="test-v1",
+            )
+            self.assertTrue(attached["attached"])
+            self.assertEqual(attached["categories"], ["科技", "社会"])
+            books = store.list_books("分析")
+            self.assertEqual(books[0]["categories"], ["科技", "社会"])
+
 
 class OllamaReportTests(unittest.TestCase):
     def test_batches_preserve_all_text(self):

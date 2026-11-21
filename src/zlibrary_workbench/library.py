@@ -251,7 +251,68 @@ class LibraryStore:
                 result.append(item)
         return result
 
+    def apply_analysis(
+        self,
+        source_path: Path,
+        *,
+        categories: list[str],
+        reports: list[tuple[str, Path]],
+        model: str,
+        prompt_version: str,
+    ) -> dict:
+        """Attach locally generated analysis to the book owning ``source_path``.
+
+        A report is always useful even for a file that has not yet been ingested.
+        In that case we return ``attached: False`` instead of creating an ambiguous
+        book row from a path alone.
+        """
+        self.initialize()
+        source = str(source_path.expanduser().resolve(strict=True))
+        cleaned_categories = _clean_categories(categories)
+        with self.connect() as connection:
+            row = connection.execute(
+                "SELECT book_id FROM files WHERE path=?", (source,)
+            ).fetchone()
+            if row is None:
+                return {"attached": False, "categories": cleaned_categories}
+            book_id = int(row["book_id"])
+            connection.execute(
+                "UPDATE books SET categories_json=?, updated_at=? WHERE id=?",
+                (json.dumps(cleaned_categories, ensure_ascii=False), _now(), book_id),
+            )
+            for kind, report_path in reports:
+                report_path = report_path.expanduser().resolve(strict=True)
+                connection.execute(
+                    """
+                    INSERT INTO reports (book_id, kind, path, model, prompt_version, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        book_id,
+                        kind,
+                        str(report_path),
+                        model,
+                        prompt_version,
+                        _now(),
+                    ),
+                )
+        return {
+            "attached": True,
+            "book_id": book_id,
+            "categories": cleaned_categories,
+            "reports": [str(path) for _, path in reports],
+        }
+
     @staticmethod
     def _fallback_source_id(metadata: BookMetadata) -> str:
         raw = "\n".join([metadata.title, metadata.author, metadata.year, metadata.isbn])
         return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:24]
+
+
+def _clean_categories(values: list[str]) -> list[str]:
+    result: list[str] = []
+    for value in values:
+        category = " ".join(str(value).split()).strip()[:80]
+        if category and category not in result:
+            result.append(category)
+    return result[:12]
