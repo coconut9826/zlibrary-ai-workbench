@@ -68,25 +68,12 @@ class ConfigTests(unittest.TestCase):
             self.assertEqual(loaded.naming.template, "{author} - {title}")
 
     def test_loopback_bypass_is_added_without_losing_existing_entries(self):
-        old_upper = os.environ.get("NO_PROXY")
-        old_lower = os.environ.get("no_proxy")
-        try:
-            os.environ["NO_PROXY"] = "example.test"
-            os.environ.pop("no_proxy", None)
+        with patch.dict(os.environ, {"NO_PROXY": "example.test"}, clear=True):
             configure_loopback_bypass()
             self.assertEqual(
                 os.environ["NO_PROXY"], "example.test,127.0.0.1,localhost,::1"
             )
             self.assertEqual(os.environ["NO_PROXY"], os.environ["no_proxy"])
-        finally:
-            if old_upper is None:
-                os.environ.pop("NO_PROXY", None)
-            else:
-                os.environ["NO_PROXY"] = old_upper
-            if old_lower is None:
-                os.environ.pop("no_proxy", None)
-            else:
-                os.environ["no_proxy"] = old_lower
 
 
 class LibraryTests(unittest.TestCase):
