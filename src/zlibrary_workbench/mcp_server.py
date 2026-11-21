@@ -131,12 +131,12 @@ def build_mcp(config: AppConfig):
     @mcp.tool()
     async def render_audiobook(project_id: str) -> dict:
         """Start an AudioSmith background render and return its job id."""
-        return await service.audiosmith().render(project_id)
+        return await service.render_audiobook(project_id)
 
     @mcp.tool()
     async def audiobook_job(job_id: str, wait_seconds: int = 0) -> dict:
         """Read AudioSmith audiobook render progress, waiting at most 60 seconds."""
-        return await service.audiosmith().job(job_id, wait_seconds)
+        return await service.audiobook_job(job_id, wait_seconds)
 
     @mcp.tool()
     async def export_audiobook(

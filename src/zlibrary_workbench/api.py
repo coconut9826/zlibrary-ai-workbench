@@ -128,10 +128,10 @@ def create_app(config: AppConfig):
 
     @app.post("/v1/audiosmith/audiobooks/{project_id}/render")
     async def audiosmith_render(project_id: str):
-        return await service.audiosmith().render(project_id)
+        return await service.render_audiobook(project_id)
 
     @app.get("/v1/audiosmith/jobs/{job_id}")
     async def audiosmith_job(job_id: str, wait: int = Query(default=0, ge=0, le=60)):
-        return await service.audiosmith().job(job_id, wait)
+        return await service.audiobook_job(job_id, wait)
 
     return app

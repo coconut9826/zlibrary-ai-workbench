@@ -303,6 +303,74 @@ class LibraryStore:
             "reports": [str(path) for _, path in reports],
         }
 
+    def record_job(
+        self,
+        job_id: str,
+        *,
+        kind: str,
+        status: str,
+        book_id: int | None = None,
+        progress: float = 0,
+        payload: dict | None = None,
+        result: dict | None = None,
+        error: str = "",
+    ) -> dict:
+        self.initialize()
+        progress = min(1.0, max(0.0, float(progress)))
+        now = _now()
+        with self.connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO jobs (
+                    id, kind, status, book_id, progress, payload_json, result_json,
+                    error, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    status=excluded.status,
+                    book_id=COALESCE(excluded.book_id, jobs.book_id),
+                    progress=excluded.progress,
+                    payload_json=excluded.payload_json,
+                    result_json=excluded.result_json,
+                    error=excluded.error,
+                    updated_at=excluded.updated_at
+                """,
+                (
+                    job_id,
+                    kind,
+                    status,
+                    book_id,
+                    progress,
+                    json.dumps(payload or {}, ensure_ascii=False),
+                    json.dumps(result or {}, ensure_ascii=False),
+                    error,
+                    now,
+                    now,
+                ),
+            )
+        return self.get_job(job_id) or {}
+
+    def get_job(self, job_id: str) -> dict | None:
+        self.initialize()
+        with self.connect() as connection:
+            row = connection.execute(
+                "SELECT * FROM jobs WHERE id=?", (job_id,)
+            ).fetchone()
+        if row is None:
+            return None
+        result = dict(row)
+        result["payload"] = json.loads(result.pop("payload_json"))
+        result["result"] = json.loads(result.pop("result_json"))
+        return result
+
+    def book_id_for_file(self, path: Path) -> int | None:
+        self.initialize()
+        with self.connect() as connection:
+            row = connection.execute(
+                "SELECT book_id FROM files WHERE path=?",
+                (str(path.expanduser().resolve()),),
+            ).fetchone()
+        return int(row["book_id"]) if row else None
+
     @staticmethod
     def _fallback_source_id(metadata: BookMetadata) -> str:
         raw = "\n".join([metadata.title, metadata.author, metadata.year, metadata.isbn])

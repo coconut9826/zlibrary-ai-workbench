@@ -76,15 +76,27 @@ class AudioSmithContractTests(unittest.IsolatedAsyncioTestCase):
             service = WorkbenchService(
                 AppConfig(paths=PathsConfig(library_root=root / "library"))
             )
+            ingested = service.ingest(
+                book,
+                BookMetadata(title="Book", author="Author", format="epub", id="b-1"),
+            )
             fake = FakeAudioSmith()
             service.audiosmith = lambda: fake
-            result = await service.create_audiobook(book, metadata, voice="Serena")
+            result = await service.create_audiobook(
+                Path(ingested["path"]), metadata, voice="Serena"
+            )
+            rendered = await service.render_audiobook(result["project_id"])
+            progress = await service.audiobook_job(rendered["job_id"], 30)
         self.assertEqual(result["project_id"], "book:1")
         self.assertIn("next_action", result)
         self.assertEqual(
-            [name for name, _ in fake.calls], ["create_audiobook", "update_longform"]
+            [name for name, _ in fake.calls],
+            ["create_audiobook", "update_longform", "render_longform", "get_job"],
         )
         self.assertEqual(fake.calls[1][1]["narrator"], "Serena")
+        self.assertEqual(result["tracking"]["status"], "prepared")
+        self.assertEqual(rendered["tracking"]["status"], "queued")
+        self.assertEqual(progress["tracking"]["progress"], 0.5)
 
 
 if __name__ == "__main__":

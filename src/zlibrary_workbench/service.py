@@ -147,9 +147,51 @@ class WorkbenchService:
         prepared = await client.prepare_render(
             project_id, metadata, narrator=narrator, cover=cover
         )
+        source_path = path.expanduser().resolve(strict=True)
+        project_job = f"audiosmith-project:{project_id}"
+        tracked = self.library.record_job(
+            project_job,
+            kind="audiobook_project",
+            status="prepared",
+            book_id=self.library.book_id_for_file(source_path),
+            payload={"project_id": project_id, "source_path": str(source_path)},
+            result={"create": created, "prepare": prepared},
+        )
         return {
             **created,
             "project_id": project_id,
             "prepared": prepared,
+            "tracking": tracked,
             "next_action": "Call render_audiobook to start the background render.",
         }
+
+    async def render_audiobook(self, project_id: str) -> dict:
+        rendered = await self.audiosmith().render(project_id)
+        job_id = str(rendered.get("job_id", ""))
+        if not job_id:
+            raise RuntimeError("AudioSmith did not return a render job_id")
+        project = self.library.get_job(f"audiosmith-project:{project_id}") or {}
+        tracked = self.library.record_job(
+            job_id,
+            kind="audiobook_render",
+            status=str(rendered.get("status", "queued")),
+            book_id=project.get("book_id"),
+            payload={"project_id": project_id},
+            result=rendered,
+        )
+        return {**rendered, "tracking": tracked}
+
+    async def audiobook_job(self, job_id: str, wait_seconds: int = 0) -> dict:
+        status = await self.audiosmith().job(job_id, wait_seconds)
+        previous = self.library.get_job(job_id) or {}
+        tracked = self.library.record_job(
+            job_id,
+            kind=previous.get("kind", "audiobook_render"),
+            status=str(status.get("status", "unknown")),
+            book_id=previous.get("book_id"),
+            progress=float(status.get("progress", previous.get("progress", 0))),
+            payload=previous.get("payload", {}),
+            result=status,
+            error=str(status.get("error", "")),
+        )
+        return {**status, "tracking": tracked}
