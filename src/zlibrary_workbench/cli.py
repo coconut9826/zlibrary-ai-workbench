@@ -199,7 +199,9 @@ def dispatch(args: argparse.Namespace) -> dict:
         from .mcp_server import run_mcp
 
         run_mcp(config)
-        return {"ok": True}
+        # MCP owns stdio for the duration of the server. It may close stdout
+        # before returning, so the CLI must not emit its normal JSON envelope.
+        return None
     raise ValueError("unknown command")
 
 
@@ -207,7 +209,8 @@ def main() -> int:
     parser = build_parser()
     try:
         result = dispatch(parser.parse_args())
-        print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
+        if result is not None:
+            print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
         return 0
     except Exception as error:
         print(

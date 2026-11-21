@@ -156,4 +156,11 @@ def build_mcp(config: AppConfig):
 
 
 def run_mcp(config: AppConfig) -> None:
-    build_mcp(config).run(transport="stdio")
+    try:
+        build_mcp(config).run(transport="stdio")
+    except ValueError as error:
+        # The MCP stdio transport can raise this while a client closes both
+        # streams after a successful session. Treat that expected shutdown as
+        # a clean exit, while keeping unrelated programming errors visible.
+        if str(error) != "I/O operation on closed file.":
+            raise

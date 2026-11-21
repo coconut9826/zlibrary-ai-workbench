@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from zlibrary_workbench.cli import build_parser, dispatch
 from zlibrary_workbench.config import (
     AppConfig,
     AudioSmithConfig,
@@ -11,6 +12,7 @@ from zlibrary_workbench.config import (
     PathsConfig,
 )
 from zlibrary_workbench.library import LibraryStore
+from zlibrary_workbench.mcp_server import run_mcp
 from zlibrary_workbench.models import BookMetadata
 from zlibrary_workbench.naming import render_name, resolve_collision, safe_filename
 from zlibrary_workbench.ollama import ReportFiles, _batches, _mindmap_report
@@ -168,6 +170,35 @@ class OllamaReportTests(unittest.TestCase):
                 result = service.summarize(Path(ingested["path"]))
             self.assertTrue(result["library"]["attached"])
             self.assertEqual(result["library"]["categories"], ["历史", "科技"])
+
+
+class McpServerTests(unittest.TestCase):
+    def test_closed_stdio_is_a_clean_mcp_exit(self):
+        config = AppConfig()
+
+        class FakeMcp:
+            def run(self, **kwargs):
+                raise ValueError("I/O operation on closed file.")
+
+        with patch("zlibrary_workbench.mcp_server.build_mcp", return_value=FakeMcp()):
+            run_mcp(config)
+
+    def test_other_mcp_errors_are_not_hidden(self):
+        config = AppConfig()
+
+        class FakeMcp:
+            def run(self, **kwargs):
+                raise ValueError("unexpected")
+
+        with patch("zlibrary_workbench.mcp_server.build_mcp", return_value=FakeMcp()):
+            with self.assertRaisesRegex(ValueError, "unexpected"):
+                run_mcp(config)
+
+    def test_mcp_cli_does_not_emit_a_json_envelope(self):
+        args = build_parser().parse_args(["serve-mcp"])
+        with patch("zlibrary_workbench.mcp_server.run_mcp") as server:
+            self.assertIsNone(dispatch(args))
+        server.assert_called_once()
 
 
 if __name__ == "__main__":
