@@ -1,11 +1,10 @@
-from __future__ import annotations
-
 import uuid
 from pathlib import Path
 
 from .config import AppConfig, default_config_path, save_config
 from .models import BookMetadata
 from .service import WorkbenchService
+from .zlibrary import ZLibraryCommandError
 
 
 def create_app(config: AppConfig, *, config_path: Path | None = None):
@@ -152,12 +151,18 @@ def create_app(config: AppConfig, *, config_path: Path | None = None):
 
     @app.post("/v1/zlibrary/login")
     def zlibrary_login(request: ZLibraryLoginRequest):
-        result = service.zlibrary_login(
-            email=request.email,
-            password=request.password,
-            account=request.account,
-            remember_password=request.remember_password,
-        )
+        try:
+            result = service.zlibrary_login(
+                email=request.email,
+                password=request.password,
+                account=request.account,
+                remember_password=request.remember_password,
+            )
+        except (ValueError, ZLibraryCommandError) as error:
+            raise HTTPException(
+                status_code=400,
+                detail={"code": "login_failed", "message": str(error)},
+            ) from error
         save_config(config, settings_path)
         return {"ok": True, "login": result, "account": request.account}
 
