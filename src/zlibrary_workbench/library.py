@@ -391,6 +391,28 @@ class LibraryStore:
             ).fetchone()
         return int(row["book_id"]) if row else None
 
+    def get_book_metadata(self, book_id: int) -> BookMetadata | None:
+        self.initialize()
+        with self.connect() as connection:
+            row = connection.execute(
+                "SELECT * FROM books WHERE id=?", (book_id,)
+            ).fetchone()
+        if row is None:
+            return None
+        return BookMetadata(
+            title=row["title"],
+            author=row["author"],
+            year=row["year"],
+            language=row["language"],
+            publisher=row["publisher"],
+            isbn=row["isbn"],
+            id=row["source_id"],
+            source=row["source"],
+            categories=json.loads(row["categories_json"]),
+            description=row["description"],
+            cover_path=row["cover_path"],
+        )
+
     @staticmethod
     def _fallback_source_id(metadata: BookMetadata) -> str:
         raw = "\n".join([metadata.title, metadata.author, metadata.year, metadata.isbn])

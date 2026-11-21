@@ -148,11 +148,8 @@ def build_mcp(config: AppConfig):
         project_id: str, render_id: str = "", filename: str = ""
     ) -> dict:
         """Export a completed AudioSmith render into the configured audiobook folder."""
-        return await service.audiosmith().export(
-            project_id,
-            service.config.paths.resolved("audiobooks"),
-            render_id=render_id,
-            filename=filename,
+        return await service.export_audiobook(
+            project_id, render_id=render_id, filename=filename
         )
 
     return mcp

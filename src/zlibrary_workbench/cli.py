@@ -126,11 +126,8 @@ async def _audio_command(service: WorkbenchService, args: argparse.Namespace) ->
     if args.audio_command == "job":
         return await client.job(args.job_id, args.wait)
     if args.audio_command == "export":
-        return await client.export(
-            args.project_id,
-            service.config.paths.resolved("audiobooks"),
-            render_id=args.render_id,
-            filename=args.filename,
+        return await service.export_audiobook(
+            args.project_id, render_id=args.render_id, filename=args.filename
         )
     raise ValueError("unknown AudioSmith command")
 

@@ -145,4 +145,12 @@ def create_app(config: AppConfig):
     async def audiosmith_job(job_id: str, wait: int = Query(default=0, ge=0, le=60)):
         return await service.audiobook_job(job_id, wait)
 
+    @app.post("/v1/audiosmith/audiobooks/{project_id}/export")
+    async def audiosmith_export(
+        project_id: str, render_id: str = "", filename: str = ""
+    ):
+        return await service.export_audiobook(
+            project_id, render_id=render_id, filename=filename
+        )
+
     return app

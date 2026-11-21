@@ -9,9 +9,10 @@ from zlibrary_workbench.service import WorkbenchService
 
 
 class FakeAudioSmith(AudioSmithClient):
-    def __init__(self):
+    def __init__(self, export_path: Path | None = None):
         super().__init__(AudioSmithConfig())
         self.calls = []
+        self.export_path = export_path
 
     async def call_tool(self, name, arguments):
         self.calls.append((name, arguments))
@@ -22,7 +23,7 @@ class FakeAudioSmith(AudioSmithClient):
         if name == "get_job":
             return {"status": "running", "progress": 0.5}
         if name == "export_longform":
-            return {"files": ["/tmp/book.m4b"]}
+            return {"files": [str(self.export_path or "/tmp/book.m4b")]}
         return {"ok": True}
 
 
@@ -73,9 +74,8 @@ class AudioSmithContractTests(unittest.IsolatedAsyncioTestCase):
             root = Path(directory)
             book = root / "book.epub"
             book.write_bytes(b"epub")
-            service = WorkbenchService(
-                AppConfig(paths=PathsConfig(library_root=root / "library"))
-            )
+            config = AppConfig(paths=PathsConfig(library_root=root / "library"))
+            service = WorkbenchService(config)
             ingested = service.ingest(
                 book,
                 BookMetadata(title="Book", author="Author", format="epub", id="b-1"),
@@ -87,16 +87,28 @@ class AudioSmithContractTests(unittest.IsolatedAsyncioTestCase):
             )
             rendered = await service.render_audiobook(result["project_id"])
             progress = await service.audiobook_job(rendered["job_id"], 30)
+            audio_file = config.paths.resolved("audiobooks") / "Book.m4b"
+            audio_file.write_bytes(b"m4b")
+            fake.export_path = audio_file
+            exported = await service.export_audiobook(result["project_id"])
         self.assertEqual(result["project_id"], "book:1")
         self.assertIn("next_action", result)
         self.assertEqual(
             [name for name, _ in fake.calls],
-            ["create_audiobook", "update_longform", "render_longform", "get_job"],
+            [
+                "create_audiobook",
+                "update_longform",
+                "render_longform",
+                "get_job",
+                "export_longform",
+            ],
         )
         self.assertEqual(fake.calls[1][1]["narrator"], "Serena")
         self.assertEqual(result["tracking"]["status"], "prepared")
         self.assertEqual(rendered["tracking"]["status"], "queued")
         self.assertEqual(progress["tracking"]["progress"], 0.5)
+        self.assertEqual(exported["library"][0]["kind"], "audiobook")
+        self.assertEqual(exported["library"][0]["format"], "m4b")
 
 
 if __name__ == "__main__":

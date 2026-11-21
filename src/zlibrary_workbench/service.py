@@ -195,3 +195,26 @@ class WorkbenchService:
             error=str(status.get("error", "")),
         )
         return {**status, "tracking": tracked}
+
+    async def export_audiobook(
+        self, project_id: str, *, render_id: str = "", filename: str = ""
+    ) -> dict:
+        exported = await self.audiosmith().export(
+            project_id,
+            self.config.paths.resolved("audiobooks"),
+            render_id=render_id,
+            filename=filename,
+        )
+        project = self.library.get_job(f"audiosmith-project:{project_id}") or {}
+        book_id = project.get("book_id")
+        metadata = self.library.get_book_metadata(int(book_id)) if book_id else None
+        library_files = []
+        if metadata:
+            for value in exported.get("files", []):
+                path = Path(value)
+                if path.is_file():
+                    metadata.format = path.suffix.lstrip(".").lower()
+                    library_files.append(
+                        self.library.register_file(path, metadata, kind="audiobook")
+                    )
+        return {**exported, "library": library_files}
