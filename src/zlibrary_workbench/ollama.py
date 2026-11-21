@@ -123,7 +123,9 @@ class OllamaClient:
         markdown_path.write_text(
             _markdown_report(reduced, title or path.stem, author), encoding="utf-8"
         )
-        mindmap_path.write_text(_mindmap_report(reduced, title or path.stem), encoding="utf-8")
+        mindmap_path.write_text(
+            _mindmap_report(reduced, title or path.stem), encoding="utf-8"
+        )
         metadata_path.write_text(
             json.dumps(
                 {
@@ -238,7 +240,13 @@ def _markdown_report(data: dict, title: str, author: str) -> str:
 
 
 def _mindmap_report(data: dict, title: str) -> str:
-    lines = [f"# 《{title}》导图", "", "```mermaid", "mindmap", f"  root(({_mermaid(title)}))"]
+    lines = [
+        f"# 《{title}》导图",
+        "",
+        "```mermaid",
+        "mindmap",
+        f"  root(({_mermaid(title)}))",
+    ]
     for concept in data.get("concepts") or []:
         if isinstance(concept, str):
             lines.append(f"    {_mermaid(concept)}")
@@ -257,4 +265,3 @@ def _mindmap_report(data: dict, title: str) -> str:
 
 def _mermaid(value: str) -> str:
     return re.sub(r"[\r\n\t]+", " ", value).replace('"', "'")[:120]
-

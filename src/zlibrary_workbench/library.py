@@ -253,8 +253,5 @@ class LibraryStore:
 
     @staticmethod
     def _fallback_source_id(metadata: BookMetadata) -> str:
-        raw = "\n".join(
-            [metadata.title, metadata.author, metadata.year, metadata.isbn]
-        )
+        raw = "\n".join([metadata.title, metadata.author, metadata.year, metadata.isbn])
         return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:24]
-

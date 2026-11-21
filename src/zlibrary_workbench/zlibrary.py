@@ -72,7 +72,9 @@ class ZLibraryAdapter:
             args.append("--refresh")
         return self._run(args)
 
-    def _run(self, arguments: list[str], *, timeout: int | None = None) -> dict[str, Any]:
+    def _run(
+        self, arguments: list[str], *, timeout: int | None = None
+    ) -> dict[str, Any]:
         if not self.script_path.exists():
             raise FileNotFoundError(self.script_path)
         process = subprocess.run(
@@ -95,9 +97,10 @@ class ZLibraryAdapter:
             except json.JSONDecodeError:
                 continue
         if process.returncode != 0:
-            message = str(payload.get("error") or payload.get("reason") or process.stderr.strip())
+            message = str(
+                payload.get("error") or payload.get("reason") or process.stderr.strip()
+            )
             raise ZLibraryCommandError(message, payload, process.returncode)
         if not payload:
             raise ZLibraryCommandError("zlibrary-tor returned no JSON output")
         return payload
-

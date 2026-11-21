@@ -44,7 +44,10 @@ def _choose_mode(document: Any) -> tuple[str, list[str]]:
     if sample_count == 0:
         return "reflow", ["document contains no pages"]
     indexes = sorted(
-        {round(index * (document.page_count - 1) / max(sample_count - 1, 1)) for index in range(sample_count)}
+        {
+            round(index * (document.page_count - 1) / max(sample_count - 1, 1))
+            for index in range(sample_count)
+        }
     )
     for index in indexes:
         page = document[index]
@@ -53,8 +56,14 @@ def _choose_mode(document: Any) -> tuple[str, list[str]]:
         block_counts.append(len(blocks))
         page_area = max(page.rect.width * page.rect.height, 1)
         image_area = sum(
-            max(0, block.get("bbox", [0, 0, 0, 0])[2] - block.get("bbox", [0, 0, 0, 0])[0])
-            * max(0, block.get("bbox", [0, 0, 0, 0])[3] - block.get("bbox", [0, 0, 0, 0])[1])
+            max(
+                0,
+                block.get("bbox", [0, 0, 0, 0])[2] - block.get("bbox", [0, 0, 0, 0])[0],
+            )
+            * max(
+                0,
+                block.get("bbox", [0, 0, 0, 0])[3] - block.get("bbox", [0, 0, 0, 0])[1],
+            )
             for block in blocks
             if block.get("type") == 1
         )
@@ -130,7 +139,9 @@ def convert_pdf_to_epub(
     try:
         if document.page_count > max_pages:
             raise ValueError(f"PDF exceeds {max_pages} page limit")
-        selected_mode, warnings = _choose_mode(document) if mode == "auto" else (mode, [])
+        selected_mode, warnings = (
+            _choose_mode(document) if mode == "auto" else (mode, [])
+        )
         report = ConversionReport(
             input_path=str(input_path),
             output_path=str(output_path),
@@ -141,7 +152,11 @@ def convert_pdf_to_epub(
         )
         meta = metadata or BookMetadata(title=input_path.stem, format="epub")
         book = epub.EpubBook()
-        book.set_identifier(meta.isbn or meta.id or hashlib.sha256(str(input_path).encode()).hexdigest()[:24])
+        book.set_identifier(
+            meta.isbn
+            or meta.id
+            or hashlib.sha256(str(input_path).encode()).hexdigest()[:24]
+        )
         book.set_title(meta.title or input_path.stem)
         book.set_language(meta.language or "und")
         if meta.author:
@@ -183,7 +198,12 @@ def convert_pdf_to_epub(
                 report.images_written += 1
             else:
                 blocks = page.get_text("dict").get("blocks", [])
-                blocks.sort(key=lambda item: (item.get("bbox", [0, 0])[1], item.get("bbox", [0, 0])[0]))
+                blocks.sort(
+                    key=lambda item: (
+                        item.get("bbox", [0, 0])[1],
+                        item.get("bbox", [0, 0])[0],
+                    )
+                )
                 for block in blocks:
                     if block.get("type") == 0:
                         fragment, count = _span_html(block)
@@ -195,7 +215,11 @@ def convert_pdf_to_epub(
                         extension = str(block.get("ext") or "png").lower()
                         if extension not in {"png", "jpg", "jpeg", "gif", "webp"}:
                             extension = "png"
-                        media = "image/jpeg" if extension in {"jpg", "jpeg"} else f"image/{extension}"
+                        media = (
+                            "image/jpeg"
+                            if extension in {"jpg", "jpeg"}
+                            else f"image/{extension}"
+                        )
                         image_counter += 1
                         image_name = f"images/image-{image_counter:05d}.{extension}"
                         image_item = epub.EpubItem(
@@ -245,7 +269,8 @@ def convert_pdf_to_epub(
             report_path.parent.mkdir(parents=True, exist_ok=True)
             temporary_report = report_path.with_suffix(report_path.suffix + ".tmp")
             temporary_report.write_text(
-                json.dumps(report.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8"
+                json.dumps(report.to_dict(), ensure_ascii=False, indent=2),
+                encoding="utf-8",
             )
             os.replace(temporary_report, report_path)
         return report
@@ -291,4 +316,3 @@ def extract_document_text(path: Path, max_chars: int = 4_000_000) -> list[dict]:
         text = path.read_text(encoding="utf-8", errors="replace")[:max_chars]
         return [{"source": path.name, "text": text}]
     raise ValueError("supported text extraction formats: PDF, EPUB, TXT, Markdown")
-

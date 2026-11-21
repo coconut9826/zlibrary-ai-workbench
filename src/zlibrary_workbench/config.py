@@ -13,7 +13,10 @@ def default_config_path() -> Path:
     if override:
         return Path(override).expanduser()
     if sys.platform == "darwin":
-        return Path.home() / "Library/Application Support/zlibrary-ai-workbench/config.toml"
+        return (
+            Path.home()
+            / "Library/Application Support/zlibrary-ai-workbench/config.toml"
+        )
     root = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
     return root / "zlibrary-ai-workbench/config.toml"
 
@@ -79,9 +82,10 @@ class AppConfig:
         root = self.paths.library_root.expanduser().resolve()
         for name in ("downloads", "converted", "audiobooks", "reports"):
             target = self.paths.resolved(name)
-            if not target.is_relative_to(root) and not Path(
-                getattr(self.paths, name)
-            ).expanduser().is_absolute():
+            if (
+                not target.is_relative_to(root)
+                and not Path(getattr(self.paths, name)).expanduser().is_absolute()
+            ):
                 raise ValueError(f"paths.{name} escapes library_root")
 
     def ensure_directories(self) -> None:
@@ -103,8 +107,15 @@ def _validate_local_url(url: str, label: str, *, allow_remote: bool) -> None:
     parsed = urlparse(url)
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
         raise ValueError(f"{label} base_url must be an HTTP(S) origin")
-    if parsed.path not in {"", "/"} or parsed.query or parsed.fragment or parsed.username:
-        raise ValueError(f"{label} base_url must not include path, credentials, or query")
+    if (
+        parsed.path not in {"", "/"}
+        or parsed.query
+        or parsed.fragment
+        or parsed.username
+    ):
+        raise ValueError(
+            f"{label} base_url must not include path, credentials, or query"
+        )
     if not allow_remote and parsed.hostname not in {"127.0.0.1", "localhost", "::1"}:
         raise ValueError(f"{label} must use a loopback address")
 
@@ -155,4 +166,3 @@ model = ""
 format = "m4b"
 loudness = "acx"
 """
-

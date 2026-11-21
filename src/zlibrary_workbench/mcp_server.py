@@ -155,4 +155,3 @@ def build_mcp(config: AppConfig):
 
 def run_mcp(config: AppConfig) -> None:
     build_mcp(config).run(transport="stdio")
-

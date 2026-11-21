@@ -36,7 +36,9 @@ class NamingTests(unittest.TestCase):
 
 class ConfigTests(unittest.TestCase):
     def test_audiosmith_must_stay_on_loopback(self):
-        config = AppConfig(audiosmith=AudioSmithConfig(base_url="http://example.com:3901"))
+        config = AppConfig(
+            audiosmith=AudioSmithConfig(base_url="http://example.com:3901")
+        )
         with self.assertRaisesRegex(ValueError, "loopback"):
             config.validate()
 
@@ -77,7 +79,10 @@ class OllamaReportTests(unittest.TestCase):
 
     def test_mindmap_is_mermaid(self):
         report = _mindmap_report(
-            {"concepts": [{"name": "主题", "children": ["子项"]}], "key_points": ["重点"]},
+            {
+                "concepts": [{"name": "主题", "children": ["子项"]}],
+                "key_points": ["重点"],
+            },
             "书名",
         )
         self.assertIn("```mermaid", report)

@@ -55,7 +55,9 @@ def safe_filename(value: str, *, max_length: int = 180) -> str:
 
 def render_name(template: str, metadata: Mapping[str, object], extension: str) -> str:
     validate_template(template)
-    values = {field: str(metadata.get(field) or "").strip() for field in SUPPORTED_FIELDS}
+    values = {
+        field: str(metadata.get(field) or "").strip() for field in SUPPORTED_FIELDS
+    }
     values["format"] = values["format"] or extension.lstrip(".").lower()
     rendered = template.format_map(values)
     rendered = _EMPTY_GROUPS.sub("", rendered)
@@ -79,4 +81,3 @@ def resolve_collision(path: Path, strategy: str = "suffix") -> Path:
         if not candidate.exists():
             return candidate
     raise FileExistsError(f"too many filename collisions for {path.name}")
-

@@ -170,7 +170,10 @@ def dispatch(args: argparse.Namespace) -> dict:
         )
     if args.command == "library":
         if args.library_command == "list":
-            return {"ok": True, "books": service.library.list_books(args.query, args.limit)}
+            return {
+                "ok": True,
+                "books": service.library.list_books(args.query, args.limit),
+            }
         return service.ingest(args.path, _metadata(args), kind=args.kind)
     if args.command == "convert":
         return service.convert_pdf(args.path, _metadata(args), mode=args.mode)
@@ -180,7 +183,9 @@ def dispatch(args: argparse.Namespace) -> dict:
         return asyncio.run(_audio_command(service, args))
     if args.command == "serve-api":
         if args.host not in {"127.0.0.1", "localhost", "::1"}:
-            raise ValueError("REST API defaults to loopback; remote binding is not enabled")
+            raise ValueError(
+                "REST API defaults to loopback; remote binding is not enabled"
+            )
         try:
             import uvicorn
         except ImportError as error:
@@ -216,4 +221,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

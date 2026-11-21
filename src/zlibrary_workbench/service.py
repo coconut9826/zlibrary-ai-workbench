@@ -53,7 +53,9 @@ class WorkbenchService:
         ingested = self.library.ingest_file(Path(path_value), metadata, kind="original")
         return {**result, "library": ingested}
 
-    def ingest(self, path: Path, metadata: BookMetadata, *, kind: str = "original") -> dict:
+    def ingest(
+        self, path: Path, metadata: BookMetadata, *, kind: str = "original"
+    ) -> dict:
         return self.library.ingest_file(path, metadata, kind=kind)
 
     def convert_pdf(
@@ -71,9 +73,7 @@ class WorkbenchService:
             self.config.naming.collision,
         )
         report_path = (
-            self.library.root
-            / ".workbench/conversion-reports"
-            / f"{output.stem}.json"
+            self.library.root / ".workbench/conversion-reports" / f"{output.stem}.json"
         )
         report = convert_pdf_to_epub(
             path, output, metadata=metadata, mode=mode, report_path=report_path
@@ -108,4 +108,3 @@ class WorkbenchService:
 
     def audiosmith(self) -> AudioSmithClient:
         return AudioSmithClient(self.config.audiosmith)
-

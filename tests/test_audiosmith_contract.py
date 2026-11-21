@@ -36,7 +36,9 @@ class AudioSmithContractTests(unittest.IsolatedAsyncioTestCase):
             book = root / "book.epub"
             book.write_bytes(b"epub")
             created = await client.create_audiobook(book, metadata, voice="Serena")
-            await client.prepare_render(created["project_id"], metadata, narrator="Narrator")
+            await client.prepare_render(
+                created["project_id"], metadata, narrator="Narrator"
+            )
             rendered = await client.render(created["project_id"])
             progress = await client.job(rendered["job_id"], 30)
             exported = await client.export(

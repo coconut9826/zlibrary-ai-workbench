@@ -32,7 +32,9 @@ class AudioSmithClient:
     ) -> dict[str, Any]:
         path = path.expanduser().resolve(strict=True)
         if path.suffix.lower() not in {".epub", ".txt", ".md", ".markdown", ".docx"}:
-            raise ValueError("AudioSmith audiobook input must be EPUB, TXT, Markdown, or DOCX")
+            raise ValueError(
+                "AudioSmith audiobook input must be EPUB, TXT, Markdown, or DOCX"
+            )
         arguments: dict[str, Any] = {
             "path": str(path),
             "title": metadata.title or path.stem,
@@ -72,7 +74,9 @@ class AudioSmithClient:
             arguments["cover"] = str(cover)
         return await self.call_tool("update_longform", arguments)
 
-    async def render(self, project_id: str, chapters: list[int] | None = None) -> dict[str, Any]:
+    async def render(
+        self, project_id: str, chapters: list[int] | None = None
+    ) -> dict[str, Any]:
         arguments: dict[str, Any] = {"project_id": project_id}
         if chapters:
             arguments["chapters"] = chapters
@@ -142,4 +146,3 @@ class AudioSmithClient:
         if len(payloads) == 1 and isinstance(payloads[0], dict):
             return payloads[0]
         return {"ok": True, "content": payloads}
-

@@ -135,4 +135,3 @@ def create_app(config: AppConfig):
         return await service.audiosmith().job(job_id, wait)
 
     return app
-
