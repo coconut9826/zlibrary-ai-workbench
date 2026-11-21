@@ -3,9 +3,9 @@ requires = ["setuptools>=83.0.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "zlibrary-tor"
-version = "0.2.0"
-description = "JSON CLI and agent skill for the Z-Library E-API through Tor"
+name = "zlibrary-ai-workbench"
+version = "0.3.0.dev0"
+description = "Local-first AI ebook workbench with Z-Library, Ollama, conversion, library, and AudioSmith integrations"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
@@ -13,16 +13,37 @@ dependencies = ["httpx[socks]>=0.28.1,<1", "certifi>=2026.10.19"]
 
 [project.scripts]
 zlibrary-tor = "zlibrary_tor:main"
+zlibrary-workbench = "zlibrary_workbench.cli:main"
 
 [project.optional-dependencies]
+server = [
+  "fastapi>=0.115,<1",
+  "mcp>=1.20,<2",
+  "uvicorn>=0.34,<1",
+]
+conversion = [
+  "EbookLib>=0.19,<1",
+  "Pillow>=11,<13",
+  "PyMuPDF>=1.26,<2",
+]
+all = [
+  "EbookLib>=0.19,<1",
+  "fastapi>=0.115,<1",
+  "mcp>=1.20,<2",
+  "Pillow>=11,<13",
+  "PyMuPDF>=1.26,<2",
+  "uvicorn>=0.34,<1",
+]
+
 dev = ["pytest>=8,<10", "ruff>=0.11,<1"]
 
 [tool.setuptools]
 py-modules = ["zlibrary_tor"]
-package-dir = {"" = "scripts"}
+packages = ["zlibrary_workbench"]
+package-dir = {"" = "scripts", "zlibrary_workbench" = "src/zlibrary_workbench"}
 
 [tool.pytest.ini_options]
-pythonpath = ["scripts"]
+pythonpath = ["scripts", "src"]
 testpaths = ["tests"]
 
 [tool.ruff]
