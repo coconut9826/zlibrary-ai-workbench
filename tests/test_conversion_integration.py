@@ -5,8 +5,12 @@ import unittest
 import zipfile
 from pathlib import Path
 
-import fitz
-from PIL import Image
+try:
+    import fitz
+    from PIL import Image
+except ImportError:  # The upstream minimal test matrix installs only the core extra.
+    fitz = None
+    Image = None
 
 from zlibrary_workbench.conversion import convert_pdf_to_epub
 from zlibrary_workbench.models import BookMetadata
@@ -30,6 +34,9 @@ def make_pdf(path: Path) -> None:
     document.close()
 
 
+@unittest.skipUnless(
+    fitz is not None and Image is not None, "conversion extra not installed"
+)
 class ConversionIntegrationTests(unittest.TestCase):
     def test_reflow_preserves_text_and_embedded_image(self):
         with tempfile.TemporaryDirectory() as directory:
