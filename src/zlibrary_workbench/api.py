@@ -119,7 +119,7 @@ def create_app(config: AppConfig):
 
     @app.post("/v1/audiosmith/audiobooks")
     async def audiosmith_create(request: AudioCreateRequest):
-        return await service.audiosmith().create_audiobook(
+        return await service.create_audiobook(
             Path(request.path),
             request.metadata.metadata(),
             voice=request.voice,

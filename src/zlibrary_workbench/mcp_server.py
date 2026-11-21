@@ -121,7 +121,7 @@ def build_mcp(config: AppConfig):
         model: str = "",
     ) -> dict:
         """Create an AudioSmith audiobook project from EPUB/TXT/Markdown/DOCX."""
-        return await service.audiosmith().create_audiobook(
+        return await service.create_audiobook(
             Path(path),
             BookMetadata(title=title, author=author, language=language),
             voice=voice,

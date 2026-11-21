@@ -125,3 +125,31 @@ class WorkbenchService:
 
     def audiosmith(self) -> AudioSmithClient:
         return AudioSmithClient(self.config.audiosmith)
+
+    async def create_audiobook(
+        self,
+        path: Path,
+        metadata: BookMetadata,
+        *,
+        voice: str = "",
+        model: str = "",
+    ) -> dict:
+        """Create and configure an AudioSmith project without starting a render."""
+        client = self.audiosmith()
+        created = await client.create_audiobook(
+            path, metadata, voice=voice, model=model
+        )
+        project_id = str(created.get("project_id", ""))
+        if not project_id:
+            raise RuntimeError("AudioSmith did not return an audiobook project_id")
+        narrator = voice or self.config.audiosmith.voice
+        cover = Path(metadata.cover_path) if metadata.cover_path else None
+        prepared = await client.prepare_render(
+            project_id, metadata, narrator=narrator, cover=cover
+        )
+        return {
+            **created,
+            "project_id": project_id,
+            "prepared": prepared,
+            "next_action": "Call render_audiobook to start the background render.",
+        }

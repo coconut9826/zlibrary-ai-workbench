@@ -3,8 +3,9 @@ import unittest
 from pathlib import Path
 
 from zlibrary_workbench.audiosmith import AudioSmithClient
-from zlibrary_workbench.config import AudioSmithConfig
+from zlibrary_workbench.config import AppConfig, AudioSmithConfig, PathsConfig
 from zlibrary_workbench.models import BookMetadata
+from zlibrary_workbench.service import WorkbenchService
 
 
 class FakeAudioSmith(AudioSmithClient):
@@ -65,6 +66,25 @@ class AudioSmithContractTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(update_args["author"], "Author")
         export_args = client.calls[-1][1]
         self.assertEqual(export_args["render_id"], "render-1")
+
+    async def test_service_configures_project_before_render(self):
+        metadata = BookMetadata(title="Book", author="Author", language="zh-CN")
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            book = root / "book.epub"
+            book.write_bytes(b"epub")
+            service = WorkbenchService(
+                AppConfig(paths=PathsConfig(library_root=root / "library"))
+            )
+            fake = FakeAudioSmith()
+            service.audiosmith = lambda: fake
+            result = await service.create_audiobook(book, metadata, voice="Serena")
+        self.assertEqual(result["project_id"], "book:1")
+        self.assertIn("next_action", result)
+        self.assertEqual(
+            [name for name, _ in fake.calls], ["create_audiobook", "update_longform"]
+        )
+        self.assertEqual(fake.calls[1][1]["narrator"], "Serena")
 
 
 if __name__ == "__main__":
