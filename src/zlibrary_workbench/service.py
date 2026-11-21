@@ -7,6 +7,7 @@ from typing import Any
 from .audiosmith import AudioSmithClient
 from .config import AppConfig, load_config
 from .conversion import convert_pdf_to_epub
+from .keychain import delete_password, load_password, save_password
 from .library import LibraryStore
 from .models import BookMetadata
 from .naming import render_name, resolve_collision
@@ -30,6 +31,40 @@ class WorkbenchService:
 
     def search(self, query: str, **filters: Any) -> dict:
         return self.zlibrary.search(query, **filters)
+
+    def zlibrary_status(self, *, refresh: bool = False) -> dict:
+        accounts = self.zlibrary.accounts(refresh=refresh)
+        return {
+            "ok": True,
+            "accounts": accounts,
+            "account": self.config.zlibrary.account,
+            "email": self.config.zlibrary.email,
+            "remember_password": self.config.zlibrary.remember_password,
+            "has_saved_password": bool(load_password(self.config.zlibrary.account)),
+        }
+
+    def zlibrary_login(
+        self,
+        *,
+        email: str,
+        password: str = "",
+        account: str = "default",
+        remember_password: bool = False,
+    ) -> dict:
+        selected_password = password or load_password(account)
+        if not selected_password:
+            raise ValueError("password is required or must be saved in macOS Keychain")
+        result = self.zlibrary.login(
+            email=email, password=selected_password, account=account
+        )
+        if remember_password:
+            save_password(account, selected_password)
+        else:
+            delete_password(account)
+        self.config.zlibrary.account = account
+        self.config.zlibrary.email = email
+        self.config.zlibrary.remember_password = remember_password
+        return result
 
     def download(
         self,

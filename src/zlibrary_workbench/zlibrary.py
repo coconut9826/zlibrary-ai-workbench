@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+from importlib.util import find_spec
 from pathlib import Path
 from typing import Any
 
@@ -16,9 +17,7 @@ class ZLibraryCommandError(RuntimeError):
 
 class ZLibraryAdapter:
     def __init__(self, script_path: Path | None = None, *, timeout: int = 180):
-        self.script_path = script_path or (
-            Path(__file__).resolve().parents[2] / "scripts/zlibrary_tor.py"
-        )
+        self.script_path = script_path or _installed_script_path()
         self.timeout = timeout
 
     def doctor(self) -> dict[str, Any]:
@@ -72,8 +71,20 @@ class ZLibraryAdapter:
             args.append("--refresh")
         return self._run(args)
 
+    def login(self, *, email: str, password: str, account: str = "default") -> dict:
+        if not email or not password:
+            raise ValueError("email and password are required")
+        return self._run(
+            ["login", "--email", email, "--stdin-password", "--account", account],
+            input_text=password + "\n",
+        )
+
     def _run(
-        self, arguments: list[str], *, timeout: int | None = None
+        self,
+        arguments: list[str],
+        *,
+        timeout: int | None = None,
+        input_text: str | None = None,
     ) -> dict[str, Any]:
         if not self.script_path.exists():
             raise FileNotFoundError(self.script_path)
@@ -81,6 +92,7 @@ class ZLibraryAdapter:
             [sys.executable, str(self.script_path), *arguments],
             capture_output=True,
             text=True,
+            input=input_text,
             timeout=timeout or self.timeout,
             check=False,
         )
@@ -104,3 +116,11 @@ class ZLibraryAdapter:
         if not payload:
             raise ZLibraryCommandError("zlibrary-tor returned no JSON output")
         return payload
+
+
+def _installed_script_path() -> Path:
+    """Locate the CLI module in both an editable checkout and a wheel install."""
+    spec = find_spec("zlibrary_tor")
+    if spec and spec.origin:
+        return Path(spec.origin).resolve()
+    return Path(__file__).resolve().parents[2] / "scripts/zlibrary_tor.py"

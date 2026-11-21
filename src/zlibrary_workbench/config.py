@@ -75,11 +75,19 @@ class AudioSmithConfig:
 
 
 @dataclass(slots=True)
+class ZLibraryConfig:
+    account: str = "default"
+    email: str = ""
+    remember_password: bool = False
+
+
+@dataclass(slots=True)
 class AppConfig:
     paths: PathsConfig = field(default_factory=PathsConfig)
     naming: NamingConfig = field(default_factory=NamingConfig)
     ollama: OllamaConfig = field(default_factory=OllamaConfig)
     audiosmith: AudioSmithConfig = field(default_factory=AudioSmithConfig)
+    zlibrary: ZLibraryConfig = field(default_factory=ZLibraryConfig)
 
     def validate(self) -> None:
         if self.naming.collision not in {"suffix", "error", "reuse"}:
@@ -88,6 +96,8 @@ class AppConfig:
             raise ValueError("audiosmith.format must be m4b or wav")
         if self.audiosmith.loudness not in {"acx", "podcast", "off"}:
             raise ValueError("audiosmith.loudness must be acx, podcast, or off")
+        if not self.zlibrary.account.replace("_", "").replace("-", "").isalnum():
+            raise ValueError("zlibrary.account must contain letters, digits, _ or -")
         _validate_local_url(self.audiosmith.base_url, "AudioSmith", allow_remote=False)
         _validate_local_url(
             self.ollama.base_url, "Ollama", allow_remote=self.ollama.allow_remote
@@ -149,6 +159,7 @@ def load_config(path: Path | None = None) -> AppConfig:
         naming=NamingConfig(**raw.get("naming", {})),
         ollama=OllamaConfig(**raw.get("ollama", {})),
         audiosmith=AudioSmithConfig(**raw.get("audiosmith", {})),
+        zlibrary=ZLibraryConfig(**raw.get("zlibrary", {})),
     )
     config.validate()
     return config
@@ -161,7 +172,7 @@ def save_config(config: AppConfig, path: Path | None = None) -> Path:
     config_path.parent.mkdir(parents=True, exist_ok=True)
     values = config.to_dict()
     lines: list[str] = []
-    for section in ("paths", "naming", "ollama", "audiosmith"):
+    for section in ("paths", "naming", "ollama", "audiosmith", "zlibrary"):
         lines.append(f"[{section}]")
         for key, value in values[section].items():
             if isinstance(value, bool):
@@ -202,4 +213,9 @@ voice = ""
 model = ""
 format = "m4b"
 loudness = "acx"
+
+[zlibrary]
+account = "default"
+email = ""
+remember_password = false
 """

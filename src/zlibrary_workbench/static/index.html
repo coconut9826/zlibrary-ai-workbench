@@ -35,6 +35,17 @@
 
       <section class="page" id="discover">
         <div class="section-head"><div><p class="eyebrow">DISCOVER</p><h2>搜索与下载</h2></div></div>
+        <div class="card login-card">
+          <div class="login-head"><div><h3>Z-Library 登录</h3><p id="zlibrary-status">正在读取本地账号状态…</p></div><button type="button" id="tor-check">检查 Tor</button></div>
+          <form id="login-form" class="inline-form login-form">
+            <label>账号别名<input name="account" value="default" pattern="[A-Za-z0-9_-]+" /></label>
+            <label>邮箱<input required type="email" name="email" autocomplete="username" /></label>
+            <label>密码<input type="password" name="password" autocomplete="current-password" placeholder="已记住时可留空" /></label>
+            <label class="check"><input type="checkbox" name="remember_password" />记住密码（macOS 钥匙串）</label>
+            <button class="primary">登录</button>
+          </form>
+          <p class="hint">会话凭证由 Z-Library 核心本地保存；勾选记住密码时，密码仅保存到 macOS 钥匙串，不会写入工作台配置、数据库或日志。</p>
+        </div>
         <div class="card form-card">
           <form id="search-form" class="inline-form">
             <label>关键词<input required name="query" placeholder="例如：三体" /></label>
@@ -42,7 +53,7 @@
             <label>格式<select name="extension"><option value="">全部</option><option>epub</option><option>pdf</option><option>mobi</option></select></label>
             <button class="primary">搜索</button>
           </form>
-          <p class="hint">搜索和下载需要先在命令行配置 Tor 与你自己的 Z-Library 账号；下载每本书前仍须在此界面单独确认。</p>
+          <p class="hint">Tor 默认使用本机 SOCKS5：127.0.0.1:9050。下载每本书前仍须在此界面单独确认。</p>
         </div>
         <div class="result-list" id="search-results"></div>
       </section>

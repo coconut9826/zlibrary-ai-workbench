@@ -69,6 +69,12 @@ def create_app(config: AppConfig, *, config_path: Path | None = None):
         voice: str = ""
         model: str = ""
 
+    class ZLibraryLoginRequest(BaseModel):
+        email: str = Field(min_length=3, max_length=320)
+        password: str = Field(default="", max_length=1024)
+        account: str = Field(default="default", min_length=1, max_length=64)
+        remember_password: bool = False
+
     class SettingsRequest(BaseModel):
         library_root: str = Field(min_length=1, max_length=2000)
         downloads: str = "originals"
@@ -139,6 +145,25 @@ def create_app(config: AppConfig, *, config_path: Path | None = None):
             language=request.language,
             extension=request.extension,
         )
+
+    @app.get("/v1/zlibrary/status")
+    def zlibrary_status(refresh: bool = False):
+        return service.zlibrary_status(refresh=refresh)
+
+    @app.post("/v1/zlibrary/login")
+    def zlibrary_login(request: ZLibraryLoginRequest):
+        result = service.zlibrary_login(
+            email=request.email,
+            password=request.password,
+            account=request.account,
+            remember_password=request.remember_password,
+        )
+        save_config(config, settings_path)
+        return {"ok": True, "login": result, "account": request.account}
+
+    @app.post("/v1/zlibrary/doctor")
+    def zlibrary_doctor():
+        return service.zlibrary.doctor()
 
     @app.post("/v1/books/download")
     def download(request: DownloadRequest):

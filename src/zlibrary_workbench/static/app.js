@@ -33,11 +33,38 @@ async function loadSettings() {
   const data = await api('/v1/settings'); const config = data.config; const form = $('#settings-form');
   Object.entries({library_root:config.paths.library_root, downloads:config.paths.downloads, converted:config.paths.converted, audiobooks:config.paths.audiobooks, reports:config.paths.reports, naming_template:config.naming.template, collision:config.naming.collision, ollama_model:config.ollama.model, audiosmith_voice:config.audiosmith.voice, audiosmith_model:config.audiosmith.model}).forEach(([key,value]) => { form.elements[key].value = value || ''; });
 }
+async function loadZLibraryStatus() {
+  const data = await api('/v1/zlibrary/status');
+  const form = $('#login-form');
+  form.elements.account.value = data.account || 'default';
+  form.elements.email.value = data.email || '';
+  form.elements.remember_password.checked = Boolean(data.remember_password);
+  const accounts = (data.accounts.accounts || []).map((item) => item.name);
+  const state = accounts.length ? `已保存会话：${accounts.join('、')}` : '尚未登录本地账号';
+  $('#zlibrary-status').textContent = `${state}${data.has_saved_password ? ' · 密码已存入钥匙串' : ''}`;
+}
 function metadata(form) { return {title:form.elements.title.value.trim(), author:form.elements.author.value.trim(), language:form.elements.language?.value.trim() || '', format:''}; }
 
 document.querySelectorAll('.tab').forEach((button) => button.addEventListener('click', () => { document.querySelectorAll('.tab,.page').forEach((node) => node.classList.remove('active')); button.classList.add('active'); $(`#${button.dataset.page}`).classList.add('active'); }));
 $('#library-query').addEventListener('input', () => loadBooks().catch((error) => toast(error.message,true)));
 $('#refresh-tasks').addEventListener('click', () => loadTasks().catch((error) => toast(error.message,true)));
+$('#login-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  try {
+    const payload = {
+      email: form.elements.email.value.trim(),
+      password: form.elements.password.value,
+      account: form.elements.account.value.trim() || 'default',
+      remember_password: form.elements.remember_password.checked,
+    };
+    const data = await api('/v1/zlibrary/login', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    form.elements.password.value = '';
+    toast(`登录成功：${data.account}`);
+    await loadZLibraryStatus();
+  } catch(error) { toast(error.message,true); }
+});
+$('#tor-check').addEventListener('click', async () => { try { const data = await api('/v1/zlibrary/doctor', {method:'POST'}); toast(data.reachable ? 'Tor 与 Z-Library 连接正常。' : 'Tor 检查未通过。'); } catch(error) { toast(error.message,true); } });
 $('#search-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   const form = event.currentTarget;
@@ -60,4 +87,4 @@ $('#convert-form').addEventListener('submit', async (event) => { event.preventDe
 $('#summary-form').addEventListener('submit', async (event) => { event.preventDefault(); const form = event.currentTarget; try { const path = await upload(form.elements.file.files[0]); const data = await api('/v1/analysis/report',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path,title:form.elements.title.value,author:form.elements.author.value})}); toast(`报告已生成：${data.markdown}`); loadBooks(); } catch(error) { toast(error.message,true); } });
 $('#audio-form').addEventListener('submit', async (event) => { event.preventDefault(); const form = event.currentTarget; try { const path = await upload(form.elements.file.files[0]); const data = await api('/v1/audiosmith/audiobooks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path,metadata:{title:form.elements.title.value,author:'',language:'',format:''},voice:form.elements.voice.value})}); toast(`有声书项目已创建：${data.project_id}`); loadTasks(); } catch(error) { toast(error.message,true); } });
 $('#settings-form').addEventListener('submit', async (event) => { event.preventDefault(); try { const payload = Object.fromEntries(new FormData(event.currentTarget)); await api('/v1/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); toast('设置已保存。'); loadBooks(); } catch(error) { toast(error.message,true); } });
-(async () => { try { const health = await api('/health'); $('#connection').textContent = `本机书库已连接 · ${health.library_root}`; await Promise.all([loadBooks(), loadTasks(), loadSettings()]); } catch(error) { $('#connection').textContent = '本地服务不可用'; toast(error.message,true); } })();
+(async () => { try { const health = await api('/health'); $('#connection').textContent = `本机书库已连接 · ${health.library_root}`; await Promise.all([loadBooks(), loadTasks(), loadSettings(), loadZLibraryStatus()]); } catch(error) { $('#connection').textContent = '本地服务不可用'; toast(error.message,true); } })();

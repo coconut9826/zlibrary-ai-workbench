@@ -1,4 +1,5 @@
 import os
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -21,6 +22,7 @@ from zlibrary_workbench.models import BookMetadata
 from zlibrary_workbench.naming import render_name, resolve_collision, safe_filename
 from zlibrary_workbench.ollama import ReportFiles, _batches, _mindmap_report
 from zlibrary_workbench.service import WorkbenchService
+from zlibrary_workbench.zlibrary import ZLibraryAdapter
 
 
 class NamingTests(unittest.TestCase):
@@ -217,6 +219,44 @@ class McpServerTests(unittest.TestCase):
         with patch("zlibrary_workbench.mcp_server.build_mcp", return_value=FakeMcp()):
             with self.assertRaisesRegex(ValueError, "unexpected"):
                 run_mcp(config)
+
+
+class ZLibraryLoginTests(unittest.TestCase):
+    def test_adapter_sends_password_only_on_stdin(self):
+        adapter = ZLibraryAdapter(script_path=Path(__file__))
+        completed = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout='{"ok": true, "account": "work"}\n', stderr=""
+        )
+        with patch(
+            "zlibrary_workbench.zlibrary.subprocess.run", return_value=completed
+        ) as run:
+            result = adapter.login(
+                email="reader@example.test", password="secret", account="work"
+            )
+        self.assertTrue(result["ok"])
+        command = run.call_args.args[0]
+        self.assertNotIn("secret", command)
+        self.assertEqual(run.call_args.kwargs["input"], "secret\n")
+
+    def test_service_remembers_password_only_after_successful_login(self):
+        service = WorkbenchService(AppConfig())
+        service.zlibrary = type(
+            "Adapter", (), {"login": lambda self, **kwargs: {"ok": True}}
+        )()
+        with (
+            patch("zlibrary_workbench.service.save_password") as save,
+            patch("zlibrary_workbench.service.delete_password") as delete,
+        ):
+            result = service.zlibrary_login(
+                email="reader@example.test",
+                password="secret",
+                account="work",
+                remember_password=True,
+            )
+        self.assertTrue(result["ok"])
+        save.assert_called_once_with("work", "secret")
+        delete.assert_not_called()
+        self.assertEqual(service.config.zlibrary.email, "reader@example.test")
 
     def test_mcp_cli_does_not_emit_a_json_envelope(self):
         args = build_parser().parse_args(["serve-mcp"])
