@@ -21,6 +21,19 @@ def default_config_path() -> Path:
     return root / "zlibrary-ai-workbench/config.toml"
 
 
+def configure_loopback_bypass() -> None:
+    """Keep local-only services off global HTTP proxy settings."""
+    required = ("127.0.0.1", "localhost", "::1")
+    existing = os.environ.get("NO_PROXY") or os.environ.get("no_proxy") or ""
+    values = [item.strip() for item in existing.split(",") if item.strip()]
+    for item in required:
+        if item not in values:
+            values.append(item)
+    value = ",".join(values)
+    os.environ["NO_PROXY"] = value
+    os.environ["no_proxy"] = value
+
+
 @dataclass(slots=True)
 class PathsConfig:
     library_root: Path = field(

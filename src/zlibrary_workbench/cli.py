@@ -6,7 +6,12 @@ import json
 import sys
 from pathlib import Path
 
-from .config import default_config_path, default_config_text, load_config
+from .config import (
+    configure_loopback_bypass,
+    default_config_path,
+    default_config_text,
+    load_config,
+)
 from .models import BookMetadata
 from .service import WorkbenchService
 
@@ -211,6 +216,7 @@ def dispatch(args: argparse.Namespace) -> dict:
 
 
 def main() -> int:
+    configure_loopback_bypass()
     parser = build_parser()
     try:
         result = dispatch(parser.parse_args())

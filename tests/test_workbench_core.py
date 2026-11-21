@@ -1,3 +1,4 @@
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -10,6 +11,7 @@ from zlibrary_workbench.config import (
     NamingConfig,
     OllamaConfig,
     PathsConfig,
+    configure_loopback_bypass,
     load_config,
     save_config,
 )
@@ -64,6 +66,27 @@ class ConfigTests(unittest.TestCase):
             loaded = load_config(config_path)
             self.assertEqual(loaded.paths.library_root, config.paths.library_root)
             self.assertEqual(loaded.naming.template, "{author} - {title}")
+
+    def test_loopback_bypass_is_added_without_losing_existing_entries(self):
+        old_upper = os.environ.get("NO_PROXY")
+        old_lower = os.environ.get("no_proxy")
+        try:
+            os.environ["NO_PROXY"] = "example.test"
+            os.environ.pop("no_proxy", None)
+            configure_loopback_bypass()
+            self.assertEqual(
+                os.environ["NO_PROXY"], "example.test,127.0.0.1,localhost,::1"
+            )
+            self.assertEqual(os.environ["NO_PROXY"], os.environ["no_proxy"])
+        finally:
+            if old_upper is None:
+                os.environ.pop("NO_PROXY", None)
+            else:
+                os.environ["NO_PROXY"] = old_upper
+            if old_lower is None:
+                os.environ.pop("no_proxy", None)
+            else:
+                os.environ["no_proxy"] = old_lower
 
 
 class LibraryTests(unittest.TestCase):

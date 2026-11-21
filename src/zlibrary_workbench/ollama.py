@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Iterable
+from urllib.parse import urlparse
 
 from .config import OllamaConfig
 from .conversion import extract_document_text
@@ -70,7 +71,17 @@ class OllamaClient:
             headers={"Content-Type": "application/json"},
         )
         try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as response:
+            is_loopback = urlparse(self.base_url).hostname in {
+                "127.0.0.1",
+                "localhost",
+                "::1",
+            }
+            opener = (
+                urllib.request.build_opener(urllib.request.ProxyHandler({}))
+                if is_loopback
+                else urllib.request.build_opener()
+            )
+            with opener.open(request, timeout=self.timeout) as response:
                 body = response.read(16 * 1024 * 1024)
         except urllib.error.URLError as error:
             raise RuntimeError(f"Ollama request failed: {error.reason}") from error

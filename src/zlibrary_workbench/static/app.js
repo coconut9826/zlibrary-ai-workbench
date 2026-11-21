@@ -38,7 +38,23 @@ function metadata(form) { return {title:form.elements.title.value.trim(), author
 document.querySelectorAll('.tab').forEach((button) => button.addEventListener('click', () => { document.querySelectorAll('.tab,.page').forEach((node) => node.classList.remove('active')); button.classList.add('active'); $(`#${button.dataset.page}`).classList.add('active'); }));
 $('#library-query').addEventListener('input', () => loadBooks().catch((error) => toast(error.message,true)));
 $('#refresh-tasks').addEventListener('click', () => loadTasks().catch((error) => toast(error.message,true)));
-$('#search-form').addEventListener('submit', async (event) => { event.preventDefault(); const form = event.currentTarget; try { const data = await api('/v1/books/search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.fromEntries(new FormData(form)))}); $('#search-results').innerHTML = (data.books || []).map((book) => `<article class="result card"><div><strong>${escaped(book.title)}</strong><p>${escaped(book.author || '')} · ${escaped(book.year || '')} · ${escaped(book.extension || '')}</p></div><button data-book="${encodeURIComponent(JSON.stringify(book))}">确认下载</button></article>`).join('') || '<p class="empty">没有搜索结果。</p>'; document.querySelectorAll('[data-book]').forEach((button) => button.addEventListener('click', () => downloadBook(JSON.parse(decodeURIComponent(button.dataset.book)))); } catch(error) { toast(error.message,true); } });
+$('#search-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  try {
+    const data = await api('/v1/books/search', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(Object.fromEntries(new FormData(form))),
+    });
+    $('#search-results').innerHTML = (data.books || []).map((book) => `<article class="result card"><div><strong>${escaped(book.title)}</strong><p>${escaped(book.author || '')} · ${escaped(book.year || '')} · ${escaped(book.extension || '')}</p></div><button data-book="${encodeURIComponent(JSON.stringify(book))}">确认下载</button></article>`).join('') || '<p class="empty">没有搜索结果。</p>';
+    document.querySelectorAll('[data-book]').forEach((button) => {
+      button.addEventListener('click', () => {
+        downloadBook(JSON.parse(decodeURIComponent(button.dataset.book)));
+      });
+    });
+  } catch(error) { toast(error.message,true); }
+});
 async function downloadBook(book) { if (!confirm(`确认下载《${book.title}》？这可能消耗账号下载额度。`)) return; try { const data = await api('/v1/books/download',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:String(book.id),hash:String(book.hash),confirmed:true,metadata:{title:book.title,author:book.author || '',year:String(book.year || ''),language:book.language || '',format:book.extension || ''}})}); toast(`已加入书架：${data.library.path}`); loadBooks(); } catch(error) { toast(error.message,true); } }
 $('#convert-form').addEventListener('submit', async (event) => { event.preventDefault(); const form = event.currentTarget; try { const path = await upload(form.elements.file.files[0]); const data = await api('/v1/convert/pdf-to-epub',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path,metadata:metadata(form),mode:form.elements.mode.value})}); toast(`转换完成：${data.library.path}`); loadBooks(); } catch(error) { toast(error.message,true); } });
 $('#summary-form').addEventListener('submit', async (event) => { event.preventDefault(); const form = event.currentTarget; try { const path = await upload(form.elements.file.files[0]); const data = await api('/v1/analysis/report',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path,title:form.elements.title.value,author:form.elements.author.value})}); toast(`报告已生成：${data.markdown}`); loadBooks(); } catch(error) { toast(error.message,true); } });
