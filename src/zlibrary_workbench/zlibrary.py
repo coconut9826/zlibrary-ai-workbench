@@ -102,12 +102,20 @@ class ZLibraryAdapter:
             if not candidate:
                 continue
             try:
-                parsed = json.loads(candidate.splitlines()[-1])
+                # The upstream CLI pretty-prints its JSON, so parse the complete
+                # stream before attempting a final-line fallback for diagnostics.
+                parsed = json.loads(candidate)
                 if isinstance(parsed, dict):
                     payload = parsed
                     break
             except json.JSONDecodeError:
-                continue
+                try:
+                    parsed = json.loads(candidate.splitlines()[-1])
+                    if isinstance(parsed, dict):
+                        payload = parsed
+                        break
+                except json.JSONDecodeError:
+                    continue
         if process.returncode != 0:
             message = str(
                 payload.get("error") or payload.get("reason") or process.stderr.strip()
