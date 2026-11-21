@@ -362,6 +362,26 @@ class LibraryStore:
         result["result"] = json.loads(result.pop("result_json"))
         return result
 
+    def list_jobs(self, *, book_id: int | None = None, limit: int = 100) -> list[dict]:
+        self.initialize()
+        limit = max(1, min(limit, 500))
+        sql = "SELECT * FROM jobs"
+        parameters: list[object] = []
+        if book_id is not None:
+            sql += " WHERE book_id=?"
+            parameters.append(book_id)
+        sql += " ORDER BY updated_at DESC LIMIT ?"
+        parameters.append(limit)
+        with self.connect() as connection:
+            rows = connection.execute(sql, parameters).fetchall()
+        result = []
+        for row in rows:
+            item = dict(row)
+            item["payload"] = json.loads(item.pop("payload_json"))
+            item["result"] = json.loads(item.pop("result_json"))
+            result.append(item)
+        return result
+
     def book_id_for_file(self, path: Path) -> int | None:
         self.initialize()
         with self.connect() as connection:

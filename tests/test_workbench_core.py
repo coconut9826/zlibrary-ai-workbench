@@ -95,6 +95,23 @@ class LibraryTests(unittest.TestCase):
             books = store.list_books("分析")
             self.assertEqual(books[0]["categories"], ["科技", "社会"])
 
+    def test_jobs_are_persisted_and_listed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = LibraryStore(
+                AppConfig(paths=PathsConfig(library_root=Path(directory) / "library"))
+            )
+            saved = store.record_job(
+                "longform:1",
+                kind="audiobook_render",
+                status="running",
+                progress=0.25,
+                payload={"project_id": "book:1"},
+            )
+            self.assertEqual(saved["progress"], 0.25)
+            listed = store.list_jobs()
+            self.assertEqual(listed[0]["id"], "longform:1")
+            self.assertEqual(listed[0]["payload"]["project_id"], "book:1")
+
 
 class OllamaReportTests(unittest.TestCase):
     def test_batches_preserve_all_text(self):

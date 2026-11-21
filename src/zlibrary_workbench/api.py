@@ -101,6 +101,17 @@ def create_app(config: AppConfig):
     def library(query: str = "", limit: int = Query(default=100, ge=1, le=500)):
         return {"ok": True, "books": service.library.list_books(query, limit)}
 
+    @app.get("/v1/jobs")
+    def jobs(limit: int = Query(default=100, ge=1, le=500)):
+        return {"ok": True, "jobs": service.library.list_jobs(limit=limit)}
+
+    @app.get("/v1/jobs/{job_id}")
+    def job(job_id: str):
+        result = service.library.get_job(job_id)
+        if result is None:
+            raise HTTPException(status_code=404, detail={"code": "job_not_found"})
+        return {"ok": True, "job": result}
+
     @app.post("/v1/convert/pdf-to-epub")
     def convert(request: ConvertRequest):
         return service.convert_pdf(

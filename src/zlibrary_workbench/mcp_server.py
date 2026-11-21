@@ -87,6 +87,11 @@ def build_mcp(config: AppConfig):
         return {"ok": True, "books": service.library.list_books(query, limit)}
 
     @mcp.tool()
+    def list_local_jobs(limit: int = 100) -> dict:
+        """List local workbench tasks, including persistent AudioSmith render progress."""
+        return {"ok": True, "jobs": service.library.list_jobs(limit=limit)}
+
+    @mcp.tool()
     def convert_pdf_to_epub(
         path: str,
         title: str,

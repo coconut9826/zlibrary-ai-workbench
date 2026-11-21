@@ -68,6 +68,8 @@ def build_parser() -> argparse.ArgumentParser:
     library_list = library_sub.add_parser("list")
     library_list.add_argument("--query", default="")
     library_list.add_argument("--limit", type=int, default=100)
+    library_jobs = library_sub.add_parser("jobs")
+    library_jobs.add_argument("--limit", type=int, default=100)
     ingest = library_sub.add_parser("ingest")
     ingest.add_argument("path", type=Path)
     ingest.add_argument("--kind", default="original")
@@ -174,6 +176,8 @@ def dispatch(args: argparse.Namespace) -> dict:
                 "ok": True,
                 "books": service.library.list_books(args.query, args.limit),
             }
+        if args.library_command == "jobs":
+            return {"ok": True, "jobs": service.library.list_jobs(limit=args.limit)}
         return service.ingest(args.path, _metadata(args), kind=args.kind)
     if args.command == "convert":
         return service.convert_pdf(args.path, _metadata(args), mode=args.mode)
