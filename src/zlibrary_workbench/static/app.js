@@ -51,6 +51,11 @@ $('#refresh-tasks').addEventListener('click', () => loadTasks().catch((error) =>
 $('#login-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   const form = event.currentTarget;
+  const submit = $('#login-submit');
+  if (!form.reportValidity()) return;
+  submit.disabled = true;
+  submit.textContent = '正在通过 Tor 登录…';
+  $('#zlibrary-status').textContent = '正在通过本机 Tor 建立登录会话，请稍候…';
   try {
     const payload = {
       email: form.elements.email.value.trim(),
@@ -63,6 +68,10 @@ $('#login-form').addEventListener('submit', async (event) => {
     toast(`登录成功：${data.account}`);
     await loadZLibraryStatus();
   } catch(error) { toast(error.message,true); }
+  finally {
+    submit.disabled = false;
+    submit.textContent = '登录';
+  }
 });
 $('#tor-check').addEventListener('click', async () => { try { const data = await api('/v1/zlibrary/doctor', {method:'POST'}); toast(data.reachable ? 'Tor 与 Z-Library 连接正常。' : 'Tor 检查未通过。'); } catch(error) { toast(error.message,true); } });
 $('#search-form').addEventListener('submit', async (event) => {
