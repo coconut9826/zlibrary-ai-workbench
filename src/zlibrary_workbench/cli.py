@@ -109,6 +109,9 @@ def build_parser() -> argparse.ArgumentParser:
     api = sub.add_parser("serve-api")
     api.add_argument("--host", default="127.0.0.1")
     api.add_argument("--port", type=int, default=8765)
+    gui = sub.add_parser("serve-gui")
+    gui.add_argument("--host", default="127.0.0.1")
+    gui.add_argument("--port", type=int, default=8765)
     sub.add_parser("serve-mcp")
     return parser
 
@@ -182,7 +185,7 @@ def dispatch(args: argparse.Namespace) -> dict:
         return service.summarize(args.path, title=args.title, author=args.author)
     if args.command == "audiosmith":
         return asyncio.run(_audio_command(service, args))
-    if args.command == "serve-api":
+    if args.command in {"serve-api", "serve-gui"}:
         if args.host not in {"127.0.0.1", "localhost", "::1"}:
             raise ValueError(
                 "REST API defaults to loopback; remote binding is not enabled"
@@ -193,7 +196,9 @@ def dispatch(args: argparse.Namespace) -> dict:
             raise RuntimeError("serve-api requires the 'server' extra") from error
         from .api import create_app
 
-        uvicorn.run(create_app(config), host=args.host, port=args.port)
+        uvicorn.run(
+            create_app(config, config_path=config_path), host=args.host, port=args.port
+        )
         return {"ok": True}
     if args.command == "serve-mcp":
         from .mcp_server import run_mcp

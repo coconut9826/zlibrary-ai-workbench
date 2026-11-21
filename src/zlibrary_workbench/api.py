@@ -1,20 +1,24 @@
 from __future__ import annotations
 
+import uuid
 from pathlib import Path
 
-from .config import AppConfig
+from .config import AppConfig, default_config_path, save_config
 from .models import BookMetadata
 from .service import WorkbenchService
 
 
-def create_app(config: AppConfig):
+def create_app(config: AppConfig, *, config_path: Path | None = None):
     try:
-        from fastapi import FastAPI, HTTPException, Query
+        from fastapi import FastAPI, File, HTTPException, Query, UploadFile
+        from fastapi.responses import FileResponse
+        from fastapi.staticfiles import StaticFiles
         from pydantic import BaseModel, Field
     except ImportError as error:
         raise RuntimeError("REST API requires the 'server' extra") from error
 
     service = WorkbenchService(config)
+    settings_path = config_path or default_config_path()
     app = FastAPI(
         title="Z-Library AI Workbench",
         version="0.3.0.dev0",
@@ -65,9 +69,66 @@ def create_app(config: AppConfig):
         voice: str = ""
         model: str = ""
 
+    class SettingsRequest(BaseModel):
+        library_root: str = Field(min_length=1, max_length=2000)
+        downloads: str = "originals"
+        converted: str = "converted"
+        audiobooks: str = "audiobooks"
+        reports: str = "reports"
+        naming_template: str = Field(min_length=1, max_length=500)
+        collision: str = "suffix"
+        ollama_model: str = Field(min_length=1, max_length=200)
+        audiosmith_voice: str = ""
+        audiosmith_model: str = ""
+
     @app.get("/health")
     def health():
         return service.initialize()
+
+    @app.get("/v1/settings")
+    def settings():
+        return {"ok": True, "config": config.to_dict(), "path": str(settings_path)}
+
+    @app.put("/v1/settings")
+    def update_settings(request: SettingsRequest):
+        config.paths.library_root = Path(request.library_root).expanduser()
+        config.paths.downloads = request.downloads
+        config.paths.converted = request.converted
+        config.paths.audiobooks = request.audiobooks
+        config.paths.reports = request.reports
+        config.naming.template = request.naming_template
+        config.naming.collision = request.collision
+        config.ollama.model = request.ollama_model
+        config.audiosmith.voice = request.audiosmith_voice
+        config.audiosmith.model = request.audiosmith_model
+        config.ensure_directories()
+        saved = save_config(config, settings_path)
+        return {"ok": True, "config": config.to_dict(), "path": str(saved)}
+
+    @app.post("/v1/files/upload")
+    async def upload_file(file: UploadFile = File(...)):
+        filename = Path(file.filename or "upload.bin").name
+        inbox = service.library.root / ".workbench/inbox"
+        inbox.mkdir(parents=True, exist_ok=True)
+        target = inbox / f"{uuid.uuid4().hex}-{filename}"
+        size = 0
+        try:
+            with target.open("wb") as handle:
+                while chunk := await file.read(1024 * 1024):
+                    size += len(chunk)
+                    if size > 512 * 1024 * 1024:
+                        raise HTTPException(
+                            status_code=413,
+                            detail={
+                                "code": "file_too_large",
+                                "message": "Maximum upload is 512 MiB.",
+                            },
+                        )
+                    handle.write(chunk)
+        except Exception:
+            target.unlink(missing_ok=True)
+            raise
+        return {"ok": True, "path": str(target), "filename": filename}
 
     @app.post("/v1/books/search")
     def search(request: SearchRequest):
@@ -152,5 +213,12 @@ def create_app(config: AppConfig):
         return await service.export_audiobook(
             project_id, render_id=render_id, filename=filename
         )
+
+    static = Path(__file__).with_name("static")
+    app.mount("/assets", StaticFiles(directory=static), name="assets")
+
+    @app.get("/", include_in_schema=False)
+    def gui():
+        return FileResponse(static / "index.html")
 
     return app

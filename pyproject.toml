@@ -42,6 +42,9 @@ py-modules = ["zlibrary_tor"]
 packages = ["zlibrary_workbench"]
 package-dir = {"" = "scripts", "zlibrary_workbench" = "src/zlibrary_workbench"}
 
+[tool.setuptools.package-data]
+zlibrary_workbench = ["static/*"]
+
 [tool.pytest.ini_options]
 pythonpath = ["scripts", "src"]
 testpaths = ["tests"]

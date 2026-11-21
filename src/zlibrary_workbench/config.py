@@ -141,6 +141,30 @@ def load_config(path: Path | None = None) -> AppConfig:
     return config
 
 
+def save_config(config: AppConfig, path: Path | None = None) -> Path:
+    """Persist the user-owned settings without storing credentials in this file."""
+    config.validate()
+    config_path = (path or default_config_path()).expanduser()
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    values = config.to_dict()
+    lines: list[str] = []
+    for section in ("paths", "naming", "ollama", "audiosmith"):
+        lines.append(f"[{section}]")
+        for key, value in values[section].items():
+            if isinstance(value, bool):
+                rendered = "true" if value else "false"
+            elif isinstance(value, int):
+                rendered = str(value)
+            else:
+                rendered = (
+                    '"' + str(value).replace("\\", "\\\\").replace('"', '\\"') + '"'
+                )
+            lines.append(f"{key} = {rendered}")
+        lines.append("")
+    config_path.write_text("\n".join(lines), encoding="utf-8")
+    return config_path
+
+
 def default_config_text() -> str:
     return """[paths]
 library_root = "~/Books/ZLibraryWorkbench"
