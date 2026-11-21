@@ -6,7 +6,6 @@ import unicodedata
 from pathlib import Path
 from typing import Mapping
 
-
 SUPPORTED_FIELDS = {
     "title",
     "author",

@@ -13,7 +13,6 @@ from .config import AppConfig
 from .models import BookMetadata
 from .naming import render_name, resolve_collision
 
-
 SCHEMA = """
 PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS books (

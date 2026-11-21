@@ -12,7 +12,6 @@ from typing import Any, Iterable
 from .config import OllamaConfig
 from .conversion import extract_document_text
 
-
 PROMPT_VERSION = "book-report-v1"
 
 
