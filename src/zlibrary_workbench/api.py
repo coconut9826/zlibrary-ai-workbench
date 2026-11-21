@@ -113,7 +113,13 @@ def create_app(config: AppConfig, *, config_path: Path | None = None):
 
     @app.post("/v1/zlibrary/doctor")
     def zlibrary_doctor():
-        return service.zlibrary.doctor()
+        try:
+            return service.zlibrary.doctor()
+        except ZLibraryCommandError as error:
+            raise HTTPException(
+                status_code=503,
+                detail={"code": "tor_check_failed", "message": str(error)},
+            ) from error
 
     @app.post("/v1/books/download")
     def download(request: DownloadRequest):

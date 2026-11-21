@@ -21,7 +21,9 @@ class ZLibraryAdapter:
         self.timeout = timeout
 
     def doctor(self) -> dict[str, Any]:
-        return self._run(["doctor"])
+        # A connectivity probe is an interactive UI action; it should fail
+        # promptly instead of freezing the page behind the CLI's long default.
+        return self._run(["doctor"], timeout=min(self.timeout, 30))
 
     def search(
         self,
@@ -88,14 +90,19 @@ class ZLibraryAdapter:
     ) -> dict[str, Any]:
         if not self.script_path.exists():
             raise FileNotFoundError(self.script_path)
-        process = subprocess.run(
-            [sys.executable, str(self.script_path), *arguments],
-            capture_output=True,
-            text=True,
-            input=input_text,
-            timeout=timeout or self.timeout,
-            check=False,
-        )
+        try:
+            process = subprocess.run(
+                [sys.executable, str(self.script_path), *arguments],
+                capture_output=True,
+                text=True,
+                input=input_text,
+                timeout=timeout or self.timeout,
+                check=False,
+            )
+        except subprocess.TimeoutExpired as error:
+            raise ZLibraryCommandError(
+                "Z-Library request timed out; check Tor and try again."
+            ) from error
         payload: dict[str, Any] = {}
         candidates = [process.stdout.strip(), process.stderr.strip()]
         for candidate in candidates:
