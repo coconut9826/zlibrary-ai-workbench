@@ -10,6 +10,8 @@ from zlibrary_workbench.config import (
     NamingConfig,
     OllamaConfig,
     PathsConfig,
+    load_config,
+    save_config,
 )
 from zlibrary_workbench.library import LibraryStore
 from zlibrary_workbench.mcp_server import run_mcp
@@ -50,6 +52,18 @@ class ConfigTests(unittest.TestCase):
         config = AppConfig(ollama=OllamaConfig(base_url="http://192.0.2.4:11434"))
         with self.assertRaisesRegex(ValueError, "loopback"):
             config.validate()
+
+    def test_settings_round_trip(self):
+        with tempfile.TemporaryDirectory() as directory:
+            config_path = Path(directory) / "config.toml"
+            config = AppConfig(
+                paths=PathsConfig(library_root=Path(directory) / "book shelf"),
+                naming=NamingConfig(template="{author} - {title}"),
+            )
+            save_config(config, config_path)
+            loaded = load_config(config_path)
+            self.assertEqual(loaded.paths.library_root, config.paths.library_root)
+            self.assertEqual(loaded.naming.template, "{author} - {title}")
 
 
 class LibraryTests(unittest.TestCase):
