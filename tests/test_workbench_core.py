@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from zlibrary_workbench.config import (
     AppConfig,
@@ -12,7 +13,8 @@ from zlibrary_workbench.config import (
 from zlibrary_workbench.library import LibraryStore
 from zlibrary_workbench.models import BookMetadata
 from zlibrary_workbench.naming import render_name, resolve_collision, safe_filename
-from zlibrary_workbench.ollama import _batches, _mindmap_report
+from zlibrary_workbench.ollama import ReportFiles, _batches, _mindmap_report
+from zlibrary_workbench.service import WorkbenchService
 
 
 class NamingTests(unittest.TestCase):
@@ -112,6 +114,43 @@ class OllamaReportTests(unittest.TestCase):
         self.assertIn("```mermaid", report)
         self.assertIn("mindmap", report)
         self.assertIn("子项", report)
+
+    def test_service_attaches_analysis_to_ingested_book(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "library"
+            incoming = Path(directory) / "incoming.epub"
+            incoming.write_bytes(b"EPUB-test")
+            config = AppConfig(paths=PathsConfig(library_root=root))
+            service = WorkbenchService(config)
+            ingested = service.ingest(
+                incoming, BookMetadata(title="本地分析", format="epub", id="book-1")
+            )
+            reports = config.paths.resolved("reports")
+            markdown = reports / "summary.md"
+            mindmap = reports / "mindmap.md"
+            metadata = reports / "metadata.json"
+            reports.mkdir(parents=True, exist_ok=True)
+            markdown.write_text("summary", encoding="utf-8")
+            mindmap.write_text("mindmap", encoding="utf-8")
+            metadata.write_text(
+                '{"result": {"categories": ["历史", " 科技 ", "历史"]}}',
+                encoding="utf-8",
+            )
+
+            class FakeOllama:
+                def __init__(self, *args, **kwargs):
+                    pass
+
+                def summarize_document(self, *args, **kwargs):
+                    return ReportFiles(markdown, mindmap, metadata)
+
+                def close(self):
+                    pass
+
+            with patch("zlibrary_workbench.service.OllamaClient", FakeOllama):
+                result = service.summarize(Path(ingested["path"]))
+            self.assertTrue(result["library"]["attached"])
+            self.assertEqual(result["library"]["categories"], ["历史", "科技"])
 
 
 if __name__ == "__main__":
