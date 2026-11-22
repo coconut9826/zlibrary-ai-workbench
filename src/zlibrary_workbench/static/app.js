@@ -89,6 +89,7 @@ $('#login-form').addEventListener('submit', async (event) => {
 });
 $('#tor-check').addEventListener('click', async () => { try { const data = await api('/v1/zlibrary/doctor', {method:'POST'}); toast(data.reachable ? 'Tor 与 Z-Library 连接正常。' : 'Tor 检查未通过。'); } catch(error) { toast(error.message,true); } });
 $('#account-picker').addEventListener('change', async (event) => { const account = event.currentTarget.value; if (!account) return; try { await api(`/v1/zlibrary/accounts/${encodeURIComponent(account)}/select`, {method:'POST'}); await loadZLibraryStatus(); toast(`已切换到账号：${account}`); } catch(error) { toast(error.message,true); await loadZLibraryStatus(); } });
+document.querySelectorAll('[data-query]').forEach((button) => button.addEventListener('click', () => { const form = $('#search-form'); form.elements.query.value = button.dataset.query; form.elements.language.value = button.dataset.language || ''; form.elements.extension.value = button.dataset.extension || ''; form.requestSubmit(); }));
 $('#search-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   const form = event.currentTarget;
