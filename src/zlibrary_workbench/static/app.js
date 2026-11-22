@@ -6,6 +6,7 @@ const api = async (path, options = {}) => {
   return payload;
 };
 let toastTimer;
+let shelfBooks = [];
 const toast = (message, error = false) => {
   const node = $('#toast'); node.textContent = message; node.className = `show${error ? ' error' : ''}`;
   clearTimeout(toastTimer); toastTimer = setTimeout(() => { node.className = ''; }, 4200);
@@ -18,6 +19,8 @@ async function loadBooks() {
   const grid = $('#book-grid');
   grid.innerHTML = data.books.map((book) => `<article class="book-card"><h3>${escaped(book.title)}</h3><p>${escaped(book.author || '作者未知')} ${book.year ? `· ${escaped(book.year)}` : ''}</p><div class="chips">${(book.categories || []).map((item) => `<span class="chip">${escaped(item)}</span>`).join('')}${(book.files || []).map((file) => `<span class="chip">${escaped(file.format)}</span>`).join('')}</div><p>${(book.files || []).length} 个文件版本</p></article>`).join('');
   $('#books-empty').hidden = data.books.length > 0;
+  shelfBooks = data.books;
+  populateLibrarySources();
 }
 async function loadTasks() {
   const data = await api('/v1/jobs');
@@ -44,8 +47,15 @@ async function loadZLibraryStatus() {
   $('#zlibrary-status').textContent = `${state}${data.has_saved_password ? ' · 密码已存入钥匙串' : ''}`;
 }
 function metadata(form) { return {title:form.elements.title.value.trim(), author:form.elements.author.value.trim(), language:form.elements.language?.value.trim() || '', format:''}; }
+function libraryOptions(accept) { const formats = accept.split(',').map((value) => value.trim().toLowerCase()); return shelfBooks.flatMap((book) => (book.files || []).filter((file) => formats.includes(String(file.format || '').toLowerCase())).map((file) => ({book, file}))); }
+function populateLibrarySources() { document.querySelectorAll('.library-file').forEach((select) => { const selected = select.value; const items = libraryOptions(select.dataset.accept || ''); select.innerHTML = `<option value="">${items.length ? '请选择书架中的文件' : '书架中暂无兼容文件'}</option>` + items.map(({book, file}) => `<option value="${escaped(file.path)}" data-book="${escaped(String(book.id))}">${escaped(book.title)}${book.author ? ` · ${escaped(book.author)}` : ''} (${escaped(file.format)})</option>`).join(''); if (items.some(({file}) => file.path === selected)) select.value = selected; }); }
+function syncSourceMode(form) { const library = form.elements.source.value === 'library'; form.querySelector('.library-source').hidden = !library; form.querySelector('.external-source').hidden = library; form.elements.file.required = !library; form.elements.library_file.required = library; }
+function fillMetadataFromShelf(form) { const select = form.elements.library_file; const bookId = Number(select.options[select.selectedIndex]?.dataset.book); const book = shelfBooks.find((item) => item.id === bookId); if (!book) return; if (form.elements.title) form.elements.title.value = book.title || ''; if (form.elements.author) form.elements.author.value = book.author || ''; if (form.elements.language && book.language) form.elements.language.value = book.language; }
+async function sourcePath(form) { if (form.elements.source.value === 'library') { const path = form.elements.library_file.value; if (!path) throw new Error('请从内置书架选择一个文件，或切换为从电脑导入。'); return path; } const file = form.elements.file.files[0]; if (!file) throw new Error('请选择要从电脑导入的文件。'); return upload(file); }
 
 document.querySelectorAll('.tab').forEach((button) => button.addEventListener('click', () => { document.querySelectorAll('.tab,.page').forEach((node) => node.classList.remove('active')); button.classList.add('active'); $(`#${button.dataset.page}`).classList.add('active'); }));
+document.querySelectorAll('.source-choice').forEach((select) => select.addEventListener('change', () => syncSourceMode(select.form)));
+document.querySelectorAll('.library-file').forEach((select) => select.addEventListener('change', () => fillMetadataFromShelf(select.form)));
 $('#library-query').addEventListener('input', () => loadBooks().catch((error) => toast(error.message,true)));
 $('#refresh-tasks').addEventListener('click', () => loadTasks().catch((error) => toast(error.message,true)));
 $('#login-form').addEventListener('submit', async (event) => {
@@ -92,8 +102,8 @@ $('#search-form').addEventListener('submit', async (event) => {
   } catch(error) { toast(error.message,true); }
 });
 async function downloadBook(book) { if (!confirm(`确认下载《${book.title}》？这可能消耗账号下载额度。`)) return; try { const data = await api('/v1/books/download',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:String(book.id),hash:String(book.hash),confirmed:true,metadata:{title:book.title,author:book.author || '',year:String(book.year || ''),language:book.language || '',format:book.extension || ''}})}); toast(`已加入书架：${data.library.path}`); loadBooks(); } catch(error) { toast(error.message,true); } }
-$('#convert-form').addEventListener('submit', async (event) => { event.preventDefault(); const form = event.currentTarget; try { const path = await upload(form.elements.file.files[0]); const data = await api('/v1/convert/pdf-to-epub',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path,metadata:metadata(form),mode:form.elements.mode.value})}); toast(`转换完成：${data.library.path}`); loadBooks(); } catch(error) { toast(error.message,true); } });
-$('#summary-form').addEventListener('submit', async (event) => { event.preventDefault(); const form = event.currentTarget; try { const path = await upload(form.elements.file.files[0]); const data = await api('/v1/analysis/report',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path,title:form.elements.title.value,author:form.elements.author.value})}); toast(`报告已生成：${data.markdown}`); loadBooks(); } catch(error) { toast(error.message,true); } });
-$('#audio-form').addEventListener('submit', async (event) => { event.preventDefault(); const form = event.currentTarget; try { const path = await upload(form.elements.file.files[0]); const data = await api('/v1/audiosmith/audiobooks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path,metadata:{title:form.elements.title.value,author:'',language:'',format:''},voice:form.elements.voice.value})}); toast(`有声书项目已创建：${data.project_id}`); loadTasks(); } catch(error) { toast(error.message,true); } });
+$('#convert-form').addEventListener('submit', async (event) => { event.preventDefault(); const form = event.currentTarget; try { const path = await sourcePath(form); const data = await api('/v1/convert/pdf-to-epub',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path,metadata:metadata(form),mode:form.elements.mode.value})}); toast(`转换完成：${data.library.path}`); loadBooks(); } catch(error) { toast(error.message,true); } });
+$('#summary-form').addEventListener('submit', async (event) => { event.preventDefault(); const form = event.currentTarget; try { const path = await sourcePath(form); const data = await api('/v1/analysis/report',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path,title:form.elements.title.value,author:form.elements.author.value})}); toast(`报告已生成：${data.markdown}`); loadBooks(); } catch(error) { toast(error.message,true); } });
+$('#audio-form').addEventListener('submit', async (event) => { event.preventDefault(); const form = event.currentTarget; try { const path = await sourcePath(form); const data = await api('/v1/audiosmith/audiobooks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path,metadata:{title:form.elements.title.value,author:form.elements.author.value,language:'',format:''},voice:form.elements.voice.value})}); toast(`有声书项目已创建：${data.project_id}`); loadTasks(); } catch(error) { toast(error.message,true); } });
 $('#settings-form').addEventListener('submit', async (event) => { event.preventDefault(); try { const payload = Object.fromEntries(new FormData(event.currentTarget)); await api('/v1/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); toast('设置已保存。'); loadBooks(); } catch(error) { toast(error.message,true); } });
-(async () => { try { const health = await api('/health'); $('#connection').textContent = `本机书库已连接 · ${health.library_root}`; await Promise.all([loadBooks(), loadTasks(), loadSettings(), loadZLibraryStatus()]); } catch(error) { $('#connection').textContent = '本地服务不可用'; toast(error.message,true); } })();
+(async () => { document.querySelectorAll('.source-choice').forEach((select) => syncSourceMode(select.form)); try { const health = await api('/health'); $('#connection').textContent = `本机书库已连接 · ${health.library_root}`; await Promise.all([loadBooks(), loadTasks(), loadSettings(), loadZLibraryStatus()]); } catch(error) { $('#connection').textContent = '本地服务不可用'; toast(error.message,true); } })();

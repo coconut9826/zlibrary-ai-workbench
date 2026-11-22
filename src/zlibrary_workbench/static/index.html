@@ -65,7 +65,9 @@
             <h3>PDF 转 EPUB</h3>
             <p>图片与文字同步保留。扫描件或复杂版式建议使用视觉保真模式。</p>
             <form id="convert-form" class="stacked-form">
-              <label>PDF 文件<input required type="file" name="file" accept="application/pdf" /></label>
+              <label>来源<select class="source-choice" name="source"><option value="library">从内置书架选择</option><option value="external">从电脑导入</option></select></label>
+              <label class="library-source">书架中的 PDF<select name="library_file" class="library-file" data-accept="pdf"><option value="">正在读取书架…</option></select></label>
+              <label class="external-source" hidden>PDF 文件<input type="file" name="file" accept="application/pdf" /></label>
               <label>书名<input required name="title" placeholder="书名" /></label>
               <label>作者<input name="author" placeholder="作者（可选）" /></label>
               <label>语言<input name="language" value="zh-CN" /></label>
@@ -77,7 +79,9 @@
             <h3>本地 AI 总结与导图</h3>
             <p>使用 Ollama 生成总结报告、分类和 Mermaid 导图。</p>
             <form id="summary-form" class="stacked-form">
-              <label>文件<input required type="file" name="file" accept=".pdf,.epub,.txt,.md,.markdown" /></label>
+              <label>来源<select class="source-choice" name="source"><option value="library">从内置书架选择</option><option value="external">从电脑导入</option></select></label>
+              <label class="library-source">书架中的书籍<select name="library_file" class="library-file" data-accept="pdf,epub,txt,md,markdown"><option value="">正在读取书架…</option></select></label>
+              <label class="external-source" hidden>文件<input type="file" name="file" accept=".pdf,.epub,.txt,.md,.markdown" /></label>
               <label>书名<input name="title" placeholder="书名（可选）" /></label>
               <label>作者<input name="author" placeholder="作者（可选）" /></label>
               <button class="primary">生成报告</button>
@@ -87,7 +91,9 @@
             <h3>AudioSmith 有声书</h3>
             <p>将 EPUB、TXT、Markdown 或 DOCX 创建为 AudioSmith 有声书项目。渲染前仍由你明确启动。</p>
             <form id="audio-form" class="inline-form">
-              <label>文件<input required type="file" name="file" accept=".epub,.txt,.md,.markdown,.docx" /></label>
+              <label>来源<select class="source-choice" name="source"><option value="library">从内置书架选择</option><option value="external">从电脑导入</option></select></label>
+              <label class="library-source">书架中的书籍<select name="library_file" class="library-file" data-accept="epub,txt,md,markdown,docx"><option value="">正在读取书架…</option></select></label>
+              <label class="external-source" hidden>文件<input type="file" name="file" accept=".epub,.txt,.md,.markdown,.docx" /></label>
               <label>书名<input required name="title" /></label>
               <label>旁白<input name="voice" placeholder="例如 Serena" /></label>
               <button class="primary">创建有声书项目</button>
