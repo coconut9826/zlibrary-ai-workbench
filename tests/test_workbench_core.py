@@ -222,6 +222,21 @@ class McpServerTests(unittest.TestCase):
 
 
 class ZLibraryLoginTests(unittest.TestCase):
+    def test_adapter_selects_an_existing_account(self):
+        adapter = ZLibraryAdapter(script_path=Path(__file__))
+        completed = subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout='{"ok": true, "default_account": "work"}\n',
+            stderr="",
+        )
+        with patch(
+            "zlibrary_workbench.zlibrary.subprocess.run", return_value=completed
+        ) as run:
+            result = adapter.use_account("work")
+        self.assertTrue(result["ok"])
+        self.assertEqual(run.call_args.args[0][-3:], ["accounts", "use", "work"])
+
     def test_adapter_accepts_pretty_printed_json(self):
         adapter = ZLibraryAdapter(script_path=Path(__file__))
         completed = subprocess.CompletedProcess(

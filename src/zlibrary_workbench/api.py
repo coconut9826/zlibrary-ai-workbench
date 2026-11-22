@@ -111,6 +111,18 @@ def create_app(config: AppConfig, *, config_path: Path | None = None):
         save_config(config, settings_path)
         return {"ok": True, "login": result, "account": request.account}
 
+    @app.post("/v1/zlibrary/accounts/{account}/select")
+    def zlibrary_select_account(account: str):
+        try:
+            result = service.zlibrary_select_account(account)
+        except (ValueError, ZLibraryCommandError) as error:
+            raise HTTPException(
+                status_code=400,
+                detail={"code": "account_select_failed", "message": str(error)},
+            ) from error
+        save_config(config, settings_path)
+        return {"ok": True, "account": account, "selection": result}
+
     @app.post("/v1/zlibrary/doctor")
     def zlibrary_doctor():
         try:

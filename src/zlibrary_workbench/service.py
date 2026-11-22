@@ -34,6 +34,9 @@ class WorkbenchService:
 
     def zlibrary_status(self, *, refresh: bool = False) -> dict:
         accounts = self.zlibrary.accounts(refresh=refresh)
+        for item in accounts.get("accounts", []):
+            if isinstance(item, dict) and item.get("name"):
+                item["has_saved_password"] = bool(load_password(str(item["name"])))
         return {
             "ok": True,
             "accounts": accounts,
@@ -64,6 +67,12 @@ class WorkbenchService:
         self.config.zlibrary.account = account
         self.config.zlibrary.email = email
         self.config.zlibrary.remember_password = remember_password
+        return result
+
+    def zlibrary_select_account(self, account: str) -> dict:
+        result = self.zlibrary.use_account(account)
+        self.config.zlibrary.account = account
+        self.config.zlibrary.remember_password = bool(load_password(account))
         return result
 
     def download(

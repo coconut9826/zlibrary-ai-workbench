@@ -73,6 +73,9 @@ class ZLibraryAdapter:
             args.append("--refresh")
         return self._run(args)
 
+    def use_account(self, account: str) -> dict[str, Any]:
+        return self._run(["accounts", "use", account])
+
     def login(self, *, email: str, password: str, account: str = "default") -> dict:
         if not email or not password:
             raise ValueError("email and password are required")

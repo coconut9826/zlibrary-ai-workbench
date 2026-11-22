@@ -42,8 +42,12 @@ async function loadZLibraryStatus() {
   form.elements.account.value = data.account || 'default';
   form.elements.email.value = data.email || '';
   form.elements.remember_password.checked = Boolean(data.remember_password);
-  const accounts = (data.accounts.accounts || []).map((item) => item.name);
-  const state = accounts.length ? `已保存会话：${accounts.join('、')}` : '尚未登录本地账号';
+  const accounts = data.accounts.accounts || [];
+  const picker = $('#account-picker');
+  $('#account-picker-wrap').hidden = accounts.length === 0;
+  picker.innerHTML = accounts.map((item) => `<option value="${escaped(item.name)}">${escaped(item.name)}${item.is_default ? '（当前）' : ''}${item.has_saved_password ? ' · 已记住密码' : ''}</option>`).join('');
+  picker.value = data.account || data.accounts.default_account || '';
+  const state = accounts.length ? `已保存会话：${accounts.map((item) => item.name).join('、')}` : '尚未登录本地账号';
   $('#zlibrary-status').textContent = `${state}${data.has_saved_password ? ' · 密码已存入钥匙串' : ''}`;
 }
 function metadata(form) { return {title:form.elements.title.value.trim(), author:form.elements.author.value.trim(), language:form.elements.language?.value.trim() || '', format:''}; }
@@ -84,6 +88,7 @@ $('#login-form').addEventListener('submit', async (event) => {
   }
 });
 $('#tor-check').addEventListener('click', async () => { try { const data = await api('/v1/zlibrary/doctor', {method:'POST'}); toast(data.reachable ? 'Tor 与 Z-Library 连接正常。' : 'Tor 检查未通过。'); } catch(error) { toast(error.message,true); } });
+$('#account-picker').addEventListener('change', async (event) => { const account = event.currentTarget.value; if (!account) return; try { await api(`/v1/zlibrary/accounts/${encodeURIComponent(account)}/select`, {method:'POST'}); await loadZLibraryStatus(); toast(`已切换到账号：${account}`); } catch(error) { toast(error.message,true); await loadZLibraryStatus(); } });
 $('#search-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   const form = event.currentTarget;

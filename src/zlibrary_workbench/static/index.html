@@ -38,6 +38,7 @@
         <div class="section-head"><div><p class="eyebrow">DISCOVER</p><h2>搜索与下载</h2></div></div>
         <div class="card login-card">
           <div class="login-head"><div><h3>Z-Library 登录</h3><p id="zlibrary-status">正在读取本地账号状态…</p></div><button type="button" id="tor-check">检查 Tor</button></div>
+          <label id="account-picker-wrap" class="account-picker" hidden>已登录账号<select id="account-picker"></select></label>
           <form id="login-form" class="inline-form login-form">
             <label>账号别名<input name="account" value="default" pattern="[A-Za-z0-9_\-]+" /></label>
             <label>邮箱<input required type="email" name="email" autocomplete="username" /></label>
@@ -45,7 +46,7 @@
             <label class="check"><input type="checkbox" name="remember_password" />记住密码（macOS 钥匙串）</label>
             <button class="primary" id="login-submit" type="submit">登录</button>
           </form>
-          <p class="hint">会话凭证由 Z-Library 核心本地保存；勾选记住密码时，密码仅保存到 macOS 钥匙串，不会写入工作台配置、数据库或日志。</p>
+          <p class="hint">通过“账号别名”可添加多个账号；上方下拉菜单可切换已登录账号。会话凭证由 Z-Library 核心本地保存；密码仅保存到 macOS 钥匙串，不会写入工作台配置、数据库或日志。</p>
         </div>
         <div class="card form-card">
           <form id="search-form" class="inline-form">
