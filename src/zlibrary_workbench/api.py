@@ -1,3 +1,4 @@
+import json
 import uuid
 from copy import deepcopy
 from pathlib import Path
@@ -249,7 +250,17 @@ def create_app(config: AppConfig, *, config_path: Path | None = None):
 
     @app.get("/v1/jobs")
     def jobs(limit: int = Query(default=100, ge=1, le=500)):
-        return {"ok": True, "jobs": service.library.list_jobs(limit=limit)}
+        items = service.library.list_jobs(limit=limit)
+        for item in items:
+            if item["kind"] != "download" or item["status"] != "running":
+                continue
+            try:
+                item["transfer"] = json.loads(
+                    service.download_progress_path(item["id"]).read_text()
+                )
+            except (OSError, json.JSONDecodeError):
+                pass
+        return {"ok": True, "jobs": items}
 
     @app.get("/v1/jobs/{job_id}")
     def job(job_id: str):

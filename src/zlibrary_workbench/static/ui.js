@@ -14,6 +14,10 @@ function groupedBooks(books) {
   return [...groups.values()];
 }
 
+function formatBytes(value) {
+  return value >= 1024 * 1024 ? (value / 1024 / 1024).toFixed(1) + ' MB' : Math.round(value / 1024) + ' KB';
+}
+
 function renderResults(target, books) {
   target.innerHTML = groupedBooks(books).map((editions) => {
     const book = editions[0];
@@ -38,9 +42,13 @@ async function loadDownloads() {
   $('#download-list').innerHTML = jobs.map((job) => {
     const total = job.payload.target_format === 'epub' && job.payload.source_format === 'pdf' ? 3 : 2;
     const stage = {queued:1, running:2, converting:3}[job.status];
+    const transfer = job.transfer;
+    const transferLabel = transfer ? formatBytes(transfer.bytes_done) + (transfer.bytes_total ? ' / ' + formatBytes(transfer.bytes_total) + ' · ' + Math.round(transfer.bytes_done / transfer.bytes_total * 100) + '%' : ' 已传输') : '';
+    const meter = transfer ? '<progress ' + (transfer.bytes_total ? 'value="' + transfer.bytes_done + '" max="' + transfer.bytes_total + '"' : '') + ' aria-label="下载进度"></progress>' : '';
     return (
     '<article class="task download-item"><div><strong>' + escaped(job.payload.title || job.payload.id || '书籍') +
     '</strong><p>' + escaped(states[job.status] || job.status) + (stage ? ' · 阶段 ' + stage + '/' + total : '') + '</p>' +
+    (transferLabel ? '<p>' + transferLabel + '</p>' + meter : '') +
     (job.error ? '<p class="task-error">' + escaped(job.error) + '</p>' : '') +
     (job.result.path ? '<p class="download-path">' + escaped(job.result.path) + '</p>' : '') +
     '</div><div class="download-state">' +

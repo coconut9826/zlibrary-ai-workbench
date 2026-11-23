@@ -1698,6 +1698,9 @@ def download_stream(cfg: dict, url: str, output: Path, max_bytes: int) -> int:
                 raise CliError(
                     "invalid or oversized Content-Length", reason="invalid_download"
                 )
+            progress_file = os.environ.get("ZLIBRARY_PROGRESS_FILE", "")
+            progress_path = Path(progress_file) if progress_file else None
+            last_progress = 0.0
             written = 0
             fd, name = tempfile.mkstemp(
                 dir=output.parent, prefix=".zlib-", suffix=".part"
@@ -1712,6 +1715,11 @@ def download_stream(cfg: dict, url: str, output: Path, max_bytes: int) -> int:
                                 "download exceeds size limit", reason="size_limit"
                             )
                         handle.write(chunk)
+                        if progress_path and time.monotonic() - last_progress >= 0.25:
+                            _write_download_progress(
+                                progress_path, written, int(length or 0)
+                            )
+                            last_progress = time.monotonic()
                     if not written or (length is not None and written != int(length)):
                         raise CliError(
                             "empty or incomplete download", reason="incomplete_download"
@@ -1719,10 +1727,23 @@ def download_stream(cfg: dict, url: str, output: Path, max_bytes: int) -> int:
                     handle.flush()
                     os.fsync(handle.fileno())
                 temporary.replace(output)
+                if progress_path:
+                    _write_download_progress(progress_path, written, int(length or 0))
             finally:
                 temporary.unlink(missing_ok=True)
             return written
     raise CliError("download redirect failure")
+
+
+def _write_download_progress(path: Path, written: int, total: int) -> None:
+    temporary = path.with_suffix(".tmp")
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temporary.write_text(json.dumps({"bytes_done": written, "bytes_total": total}))
+        temporary.replace(path)
+    except OSError:
+        with contextlib.suppress(OSError):
+            temporary.unlink(missing_ok=True)
 
 
 def origin(url: str) -> tuple:

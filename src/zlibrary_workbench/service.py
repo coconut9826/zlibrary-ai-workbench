@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import uuid
 from pathlib import Path
@@ -104,9 +105,15 @@ class WorkbenchService:
             },
         )
         cache_dir = self.library.root / ".workbench/download-cache"
+        progress_path = self.download_progress_path(job_id)
         try:
             result = self.zlibrary.download(
-                book_id, book_hash, cache_dir, account=account, max_mb=max_mb
+                book_id,
+                book_hash,
+                cache_dir,
+                account=account,
+                max_mb=max_mb,
+                progress_path=progress_path,
             )
             path_value = result.get("path")
             if not path_value:
@@ -128,6 +135,8 @@ class WorkbenchService:
                 job_id, kind="download", status="failed", error=str(error)
             )
             raise
+        finally:
+            progress_path.unlink(missing_ok=True)
         tracked = self.library.record_job(
             job_id,
             kind="download",
@@ -137,6 +146,10 @@ class WorkbenchService:
             result={"path": ingested["path"]},
         )
         return {**result, "library": ingested, "tracking": tracked}
+
+    def download_progress_path(self, job_id: str) -> Path:
+        name = hashlib.sha256(job_id.encode()).hexdigest() + ".json"
+        return self.library.root / ".workbench/download-progress" / name
 
     def ingest(
         self, path: Path, metadata: BookMetadata, *, kind: str = "original"

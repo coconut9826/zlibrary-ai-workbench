@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from importlib.util import find_spec
@@ -49,6 +50,7 @@ class ZLibraryAdapter:
         *,
         account: str = "auto",
         max_mb: int = 80,
+        progress_path: Path | None = None,
     ) -> dict[str, Any]:
         output_dir = output_dir.expanduser().resolve()
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -65,7 +67,13 @@ class ZLibraryAdapter:
         ]
         if account:
             args.extend(["--account", account])
-        return self._run(args, timeout=max(self.timeout, 1800))
+        return self._run(
+            args,
+            timeout=max(self.timeout, 1800),
+            environment={"ZLIBRARY_PROGRESS_FILE": str(progress_path)}
+            if progress_path
+            else None,
+        )
 
     def accounts(self, *, refresh: bool = False) -> dict[str, Any]:
         args = ["accounts", "list"]
@@ -90,6 +98,7 @@ class ZLibraryAdapter:
         *,
         timeout: int | None = None,
         input_text: str | None = None,
+        environment: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         if not self.script_path.exists():
             raise FileNotFoundError(self.script_path)
@@ -101,6 +110,7 @@ class ZLibraryAdapter:
                 input=input_text,
                 timeout=timeout or self.timeout,
                 check=False,
+                **({"env": {**os.environ, **environment}} if environment else {}),
             )
         except subprocess.TimeoutExpired as error:
             raise ZLibraryCommandError(
