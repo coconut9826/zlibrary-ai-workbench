@@ -34,6 +34,9 @@ class WorkbenchService:
     def search(self, query: str, **filters: Any) -> dict:
         return self.zlibrary.search(query, **filters)
 
+    def recommendations(self, interests: list[str]) -> dict:
+        return self.zlibrary.recommendations(interests)
+
     def zlibrary_status(self, *, refresh: bool = False) -> dict:
         accounts = self.zlibrary.accounts(refresh=refresh)
         for item in accounts.get("accounts", []):

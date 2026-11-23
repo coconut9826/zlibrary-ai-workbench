@@ -29,6 +29,22 @@ class CoverTests(unittest.TestCase):
 
 
 class DownloadQueueTests(unittest.TestCase):
+    def test_recommendations_route_preserves_interests(self):
+        with tempfile.TemporaryDirectory() as directory:
+            config = AppConfig(
+                paths=PathsConfig(library_root=Path(directory) / "library")
+            )
+            client = TestClient(create_app(config))
+            with patch(
+                "zlibrary_workbench.service.WorkbenchService.recommendations",
+                return_value={"ok": True, "books": []},
+            ) as recommendations:
+                response = client.post(
+                    "/v1/books/recommendations", json={"interests": ["科幻"]}
+                )
+            self.assertEqual(response.status_code, 200)
+            recommendations.assert_called_once_with(["科幻"])
+
     def test_confirmation_and_format_validation(self):
         with tempfile.TemporaryDirectory() as directory:
             config = AppConfig(

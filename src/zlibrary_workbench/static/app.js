@@ -332,8 +332,12 @@ $("#search-form").addEventListener("submit", async (event) => {
     status.textContent = `找到 ${groupedBooks(data.books || []).length} 本书、${data.books?.length || 0} 个格式版本`;
   } catch (error) {
     if (sequence === searchSequence) {
-      status.textContent = `搜索失败：${error.message}`;
-      toast(error.message, true);
+      const message = error.message.includes("Access denied")
+        ? "Z-Library 上游当前拒绝搜索请求，请稍后重试。"
+        : error.message;
+      $("#search-results").innerHTML = "";
+      status.textContent = `搜索失败：${message}`;
+      toast(message, true);
     }
   } finally {
     if (sequence === searchSequence) button.disabled = false;

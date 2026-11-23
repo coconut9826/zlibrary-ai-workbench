@@ -42,6 +42,9 @@ class ZLibraryAdapter:
             args.extend(["--extension", extension])
         return self._run(args)
 
+    def recommendations(self, interests: list[str]) -> dict[str, Any]:
+        return self._run(["recommendations", "--interests", ",".join(interests)])
+
     def download(
         self,
         book_id: str,

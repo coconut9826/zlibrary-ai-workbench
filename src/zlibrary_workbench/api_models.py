@@ -11,6 +11,10 @@ class SearchRequest(BaseModel):
     extension: str = ""
 
 
+class RecommendationRequest(BaseModel):
+    interests: list[str] = Field(default_factory=list, max_length=10)
+
+
 class MetadataRequest(BaseModel):
     title: str = Field(min_length=1, max_length=500)
     author: str = ""

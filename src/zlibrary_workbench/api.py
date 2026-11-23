@@ -8,6 +8,7 @@ from .api_models import (
     AudioCreateRequest,
     ConvertRequest,
     DownloadRequest,
+    RecommendationRequest,
     SearchRequest,
     SettingsRequest,
     SummarizeRequest,
@@ -128,6 +129,10 @@ def create_app(config: AppConfig, *, config_path: Path | None = None):
             language=request.language,
             extension=request.extension,
         )
+
+    @app.post("/v1/books/recommendations")
+    def recommendations(request: RecommendationRequest):
+        return service.recommendations(request.interests)
 
     @app.get("/v1/zlibrary/status")
     def zlibrary_status(refresh: bool = False):

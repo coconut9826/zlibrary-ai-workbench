@@ -1,3 +1,5 @@
+let recommendationSequence = 0;
+
 function bookCover(title, url = "") {
   const image = url
     ? '<img src="' +
@@ -204,6 +206,7 @@ function renderInterests() {
 }
 
 async function loadRecommendations(force = false) {
+  const sequence = ++recommendationSequence;
   const status = $("#recommendation-status");
   if (!selectedInterests.length) {
     $("#recommendation-list").innerHTML = "";
@@ -212,7 +215,7 @@ async function loadRecommendations(force = false) {
   }
   const date = new Date().toLocaleDateString("en-CA");
   const cacheKey =
-    "workbench-recommendations-v2-" + date + "-" + selectedInterests.join("-");
+    "workbench-recommendations-v3-" + date + "-" + selectedInterests.join("-");
   try {
     let cached = null;
     try {
@@ -226,35 +229,14 @@ async function loadRecommendations(force = false) {
         "今日推荐 · " + cached.length + " 本 · " + selectedInterests.join("、");
       return;
     }
-    status.textContent = "正在按阅读方向搜索今日书籍…";
-    const start = Number(date.slice(-2)) % selectedInterests.length;
-    const queries = [
-      ...selectedInterests.slice(start),
-      ...selectedInterests.slice(0, start),
-    ].slice(0, 3);
-    const results = await Promise.allSettled(
-      queries.map((query) =>
-        api("/v1/books/search", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query, limit: 10 }),
-        }),
-      ),
-    );
-    const lists = results.map((result) =>
-      result.status === "fulfilled" ? result.value.books || [] : [],
-    );
-    const books = [];
-    for (let index = 0; index < 10; index++)
-      for (const list of lists) if (list[index]) books.push(list[index]);
-    if (!books.length && results.some((result) => result.status === "rejected"))
-      throw results.find((result) => result.status === "rejected").reason;
-    const unique = new Map();
-    for (const book of books) {
-      const key = (book.title + "|" + book.author).toLowerCase();
-      if (!unique.has(key)) unique.set(key, book);
-    }
-    const recommended = [...unique.values()].slice(0, 10);
+    status.textContent = "正在获取今日推荐…";
+    const data = await api("/v1/books/recommendations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ interests: selectedInterests }),
+    });
+    if (sequence !== recommendationSequence) return;
+    const recommended = data.books || [];
     try {
       localStorage.setItem(cacheKey, JSON.stringify(recommended));
     } catch (_) {
@@ -262,9 +244,10 @@ async function loadRecommendations(force = false) {
     }
     renderResults($("#recommendation-list"), recommended);
     status.textContent =
-      "今日推荐 · " + recommended.length + " 本 · " + queries.join("、");
+      "今日推荐 · " + recommended.length + " 本 · " + selectedInterests.join("、");
   } catch (error) {
-    status.textContent = "推荐暂不可用：" + error.message;
+    if (sequence === recommendationSequence)
+      status.textContent = "推荐暂不可用：" + error.message;
   }
 }
 

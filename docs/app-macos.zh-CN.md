@@ -2,7 +2,7 @@
 
 ## 安装和分享
 
-从 [GitHub 发布页](https://github.com/coconut9826/zlibrary-ai-workbench/releases/tag/v0.3.0-dev1) 下载 `ZLibrary-Workbench-macOS-arm64.zip`，解压后把“ZLibrary Workbench.app”拖到“应用程序”文件夹，双击启动。此包适用于 Apple Silicon、macOS 13 或更高版本。应用包含 Python 运行时、工作台代码和格式转换依赖，收件人无需另装 Python。
+从 [GitHub 发布页](https://github.com/coconut9826/zlibrary-ai-workbench/releases/tag/v0.3.0-dev2) 下载 `ZLibrary-Workbench-macOS-arm64.zip`，解压后把“ZLibrary Workbench.app”拖到“应用程序”文件夹，双击启动。此包适用于 Apple Silicon、macOS 13 或更高版本。应用包含 Python 运行时、工作台代码和格式转换依赖，收件人无需另装 Python。
 
 当前应用使用临时签名，尚未使用 Apple Developer ID 公证。其他电脑首次打开时可能出现系统安全提示。也可以从源码构建一份本机应用。请仅从信任的仓库和发布页面获取应用包。
 
