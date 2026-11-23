@@ -139,6 +139,12 @@ class LibraryTests(unittest.TestCase):
             listed = store.list_jobs()
             self.assertEqual(listed[0]["id"], "longform:1")
             self.assertEqual(listed[0]["payload"]["project_id"], "book:1")
+            store.record_job(
+                "longform:1", kind="audiobook_render", status="failed", error="offline"
+            )
+            self.assertEqual(
+                store.get_job("longform:1")["payload"]["project_id"], "book:1"
+            )
 
 
 class OllamaReportTests(unittest.TestCase):

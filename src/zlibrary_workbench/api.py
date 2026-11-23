@@ -1,4 +1,5 @@
 import uuid
+from copy import deepcopy
 from pathlib import Path
 
 from .api_models import (
@@ -11,6 +12,7 @@ from .api_models import (
     ZLibraryLoginRequest,
 )
 from .config import AppConfig, default_config_path, save_config
+from .library import LibraryStore
 from .service import WorkbenchService
 from .zlibrary import ZLibraryCommandError
 
@@ -31,6 +33,23 @@ def create_app(config: AppConfig, *, config_path: Path | None = None):
         description="Loopback-only local ebook workbench API",
     )
 
+    @app.exception_handler(ZLibraryCommandError)
+    async def zlibrary_error(_request, error: ZLibraryCommandError):
+        from fastapi.responses import JSONResponse
+
+        return JSONResponse(
+            status_code=502, content={"detail": {"message": str(error)}}
+        )
+
+    @app.exception_handler(FileNotFoundError)
+    async def missing_file(_request, _error: FileNotFoundError):
+        from fastapi.responses import JSONResponse
+
+        return JSONResponse(
+            status_code=404,
+            content={"detail": {"message": "所选文件不存在，请刷新书架后重试。"}},
+        )
+
     @app.get("/health")
     def health():
         return service.initialize()
@@ -41,19 +60,30 @@ def create_app(config: AppConfig, *, config_path: Path | None = None):
 
     @app.put("/v1/settings")
     def update_settings(request: SettingsRequest):
-        config.paths.library_root = Path(request.library_root).expanduser()
-        config.paths.downloads = request.downloads
-        config.paths.converted = request.converted
-        config.paths.audiobooks = request.audiobooks
-        config.paths.reports = request.reports
-        config.naming.template = request.naming_template
-        config.naming.collision = request.collision
-        config.ollama.model = request.ollama_model
-        config.audiosmith.voice = request.audiosmith_voice
-        config.audiosmith.model = request.audiosmith_model
-        config.ensure_directories()
-        saved = save_config(config, settings_path)
-        return {"ok": True, "config": config.to_dict(), "path": str(saved)}
+        nonlocal config
+        updated = deepcopy(config)
+        updated.paths.library_root = Path(request.library_root).expanduser()
+        updated.paths.downloads = request.downloads
+        updated.paths.converted = request.converted
+        updated.paths.audiobooks = request.audiobooks
+        updated.paths.reports = request.reports
+        updated.naming.template = request.naming_template
+        updated.naming.collision = request.collision
+        updated.ollama.model = request.ollama_model
+        updated.audiosmith.voice = request.audiosmith_voice
+        updated.audiosmith.model = request.audiosmith_model
+        try:
+            updated.validate()
+            updated.ensure_directories()
+            saved = save_config(updated, settings_path)
+        except (ValueError, OSError) as error:
+            raise HTTPException(
+                status_code=400, detail={"message": str(error)}
+            ) from error
+        config = updated
+        service.config = updated
+        service.library = LibraryStore(updated)
+        return {"ok": True, "config": updated.to_dict(), "path": str(saved)}
 
     @app.post("/v1/files/upload")
     async def upload_file(file: UploadFile = File(...)):

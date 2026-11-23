@@ -73,6 +73,7 @@ class WorkbenchService:
     def zlibrary_select_account(self, account: str) -> dict:
         result = self.zlibrary.use_account(account)
         self.config.zlibrary.account = account
+        self.config.zlibrary.email = ""
         self.config.zlibrary.remember_password = bool(load_password(account))
         return result
 

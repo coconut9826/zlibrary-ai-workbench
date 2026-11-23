@@ -329,8 +329,8 @@ class LibraryStore:
                     status=excluded.status,
                     book_id=COALESCE(excluded.book_id, jobs.book_id),
                     progress=excluded.progress,
-                    payload_json=excluded.payload_json,
-                    result_json=excluded.result_json,
+                    payload_json=CASE WHEN excluded.payload_json='{}' THEN jobs.payload_json ELSE excluded.payload_json END,
+                    result_json=CASE WHEN excluded.result_json='{}' THEN jobs.result_json ELSE excluded.result_json END,
                     error=excluded.error,
                     updated_at=excluded.updated_at
                 """,

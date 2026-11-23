@@ -54,7 +54,7 @@
             <label>关键词<input required name="query" placeholder="例如：三体" /></label>
             <label>语言<input name="language" placeholder="Chinese" /></label>
             <label>格式<select name="extension"><option value="">全部</option><option>epub</option><option>pdf</option><option>mobi</option></select></label>
-            <button class="primary">搜索</button>
+            <button class="primary" id="search-submit">搜索</button>
           </form>
           <p class="hint">Tor 默认使用本机 SOCKS5：127.0.0.1:9050。下载每本书前仍须在此界面单独确认。</p>
         </div>
@@ -81,6 +81,7 @@
           </article>
         </section>
         <div class="result-list" id="search-results"></div>
+        <p id="search-status" class="hint" role="status" aria-live="polite"></p>
       </section>
 
       <section class="page" id="studio">
