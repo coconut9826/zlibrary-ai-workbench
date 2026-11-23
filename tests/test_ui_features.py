@@ -55,10 +55,36 @@ class DownloadQueueTests(unittest.TestCase):
             self.assertTrue(response.json()["job_id"].startswith("download:"))
             download.assert_called_once()
             self.assertEqual(download.call_args.kwargs["target_format"], "epub")
+            jobs = client.get("/v1/jobs").json()["jobs"]
+            self.assertEqual(jobs[0]["status"], "queued")
             payload["target_format"] = "mobi"
             self.assertEqual(
                 client.post("/v1/books/downloads", json=payload).status_code, 400
             )
+
+    def test_queue_reports_startup_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            config = AppConfig(
+                paths=PathsConfig(library_root=Path(directory) / "library")
+            )
+            client = TestClient(
+                create_app(config, config_path=Path(directory) / "config.toml")
+            )
+            payload = {
+                "id": "123",
+                "hash": "abc",
+                "confirmed": True,
+                "metadata": {"title": "Example", "format": "epub"},
+            }
+            with patch(
+                "zlibrary_workbench.service.WorkbenchService.download",
+                side_effect=RuntimeError("startup failed"),
+            ):
+                response = client.post("/v1/books/downloads", json=payload)
+            self.assertEqual(response.status_code, 200)
+            job = client.get("/v1/jobs").json()["jobs"][0]
+            self.assertEqual(job["status"], "failed")
+            self.assertEqual(job["error"], "startup failed")
 
     def test_jobs_include_live_transfer_bytes(self):
         with tempfile.TemporaryDirectory() as directory:

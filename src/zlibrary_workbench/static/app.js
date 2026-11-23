@@ -1,6 +1,13 @@
 const $ = (selector) => document.querySelector(selector);
 const api = async (path, options = {}) => {
-  const response = await fetch(path, options);
+  let response;
+  try {
+    response = await fetch(path, options);
+    $('#connection').textContent = '本机书库已连接';
+  } catch (_) {
+    $('#connection').textContent = '本地服务暂不可用，正在重试…';
+    throw new Error('本地服务暂不可用，请稍后重试。');
+  }
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
     const validation = Array.isArray(payload.detail) ? payload.detail.map((item) => `${item.loc?.slice(-1)[0] || '参数'}：${item.msg}`).join('；') : '';
@@ -123,4 +130,15 @@ $('#convert-form').addEventListener('submit', async (event) => { event.preventDe
 $('#summary-form').addEventListener('submit', async (event) => { event.preventDefault(); const form = event.currentTarget; try { const path = await sourcePath(form); const data = await api('/v1/analysis/report',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path,title:form.elements.title.value,author:form.elements.author.value})}); toast(`报告已生成：${data.markdown}`); loadBooks(); } catch(error) { toast(error.message,true); } });
 $('#audio-form').addEventListener('submit', async (event) => { event.preventDefault(); const form = event.currentTarget; try { const path = await sourcePath(form); const data = await api('/v1/audiosmith/audiobooks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path,metadata:{title:form.elements.title.value,author:form.elements.author.value,language:'',format:''},voice:form.elements.voice.value})}); toast(`有声书项目已创建：${data.project_id}`); loadTasks(); } catch(error) { toast(error.message,true); } });
 $('#settings-form').addEventListener('submit', async (event) => { event.preventDefault(); try { const payload = Object.fromEntries(new FormData(event.currentTarget)); await api('/v1/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); toast('设置已保存。'); loadBooks(); } catch(error) { toast(error.message,true); } });
-(async () => { document.querySelectorAll('.source-choice').forEach((select) => syncSourceMode(select.form)); try { await api('/health'); $('#connection').textContent = '本机书库已连接'; } catch(error) { $('#connection').textContent = '本地服务不可用'; toast(error.message,true); return; } const results = await Promise.allSettled([loadBooks(), loadTasks(), loadSettings(), loadZLibraryStatus()]); const failures = results.filter((result) => result.status === 'rejected'); if (failures.length) toast(`${failures.length} 项数据加载失败：${failures[0].reason.message}`, true); })();
+let initialized = false;
+async function initializePage() {
+  if (initialized) return;
+  try { await api('/health'); }
+  catch(error) { setTimeout(initializePage, 3000); return; }
+  initialized = true;
+  const results = await Promise.allSettled([loadBooks(), loadTasks(), loadSettings(), loadZLibraryStatus()]);
+  const failures = results.filter((result) => result.status === 'rejected');
+  if (failures.length) toast(`${failures.length} 项数据加载失败：${failures[0].reason.message}`, true);
+}
+document.querySelectorAll('.source-choice').forEach((select) => syncSourceMode(select.form));
+initializePage();

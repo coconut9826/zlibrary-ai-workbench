@@ -231,8 +231,10 @@ def create_app(config: AppConfig, *, config_path: Path | None = None):
                     job_id=job_id,
                     target_format=target_format,
                 )
-            except Exception:
-                pass  # The job already records the actionable error.
+            except Exception as error:
+                service.library.record_job(
+                    job_id, kind="download", status="failed", error=str(error)
+                )
 
         background.add_task(run)
         return {"ok": True, "job_id": job_id}
