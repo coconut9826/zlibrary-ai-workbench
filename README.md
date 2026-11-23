@@ -1,13 +1,11 @@
 # zlibrary-tor
 
-> **AI Workbench development:** the fork at
-> `coconut9826/zlibrary-ai-workbench` is expanding this secure Tor/Z-Library
-> core into a local-first ebook workbench. The work is intentionally kept in
-> a draft branch until conversion, Ollama, AudioSmith, MCP, REST and library
-> workflows pass cloud and user-authorized end-to-end checks. See
-> [the Chinese architecture and acceptance criteria](docs/architecture.zh-CN.md).
+> **AI Workbench:** This branch adds a local library, PDF to EPUB conversion,
+> Ollama analysis, AudioSmith integration, and a native macOS window. See the
+> [macOS app guide](docs/app-macos.zh-CN.md) and
+> [architecture and acceptance criteria](docs/architecture.zh-CN.md).
 
-[![CI](https://github.com/sl251/zlibrary-tor/actions/workflows/test.yml/badge.svg)](https://github.com/sl251/zlibrary-tor/actions/workflows/test.yml)
+[![Workbench CI](https://github.com/coconut9826/zlibrary-ai-workbench/actions/workflows/workbench.yml/badge.svg?branch=feat%2Fai-workbench)](https://github.com/coconut9826/zlibrary-ai-workbench/actions/workflows/workbench.yml)
 
 An AI agent skill and CLI for accessing Z-Library's onion site through a local Tor proxy, with every command outputting structured JSON for direct parsing instead of web scraping. Downloads are quota-aware: local cache hits return `status: cached` without consuming daily download limits, alongside tiered failure diagnosis. Built in standard SKILL.md format to mount directly into Claude Code, Codex CLI, Hermes Agent, and Gemini CLI.
 

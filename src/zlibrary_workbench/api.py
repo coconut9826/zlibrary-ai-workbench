@@ -3,6 +3,7 @@ import uuid
 from copy import deepcopy
 from pathlib import Path
 
+from . import __version__
 from .api_models import (
     AudioCreateRequest,
     ConvertRequest,
@@ -37,7 +38,7 @@ def create_app(config: AppConfig, *, config_path: Path | None = None):
     settings_path = config_path or default_config_path()
     app = FastAPI(
         title="Z-Library AI Workbench",
-        version="0.3.0.dev0",
+        version=__version__,
         description="Loopback-only local ebook workbench API",
     )
 

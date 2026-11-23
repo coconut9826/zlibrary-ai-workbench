@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "zlibrary-ai-workbench"
-version = "0.3.0.dev0"
+version = "0.3.0.dev1"
 description = "Local-first AI ebook workbench with Z-Library, Ollama, conversion, library, and AudioSmith integrations"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -19,6 +19,7 @@ zlibrary-workbench = "zlibrary_workbench.cli:main"
 server = [
   "fastapi>=0.115,<1",
   "mcp>=1.20,<2",
+  "python-multipart>=0.0.20,<1",
   "uvicorn>=0.34,<1",
 ]
 conversion = [
@@ -26,12 +27,21 @@ conversion = [
   "Pillow>=11,<13",
   "PyMuPDF>=1.26,<2",
 ]
+desktop = [
+  "EbookLib>=0.19,<1",
+  "fastapi>=0.115,<1",
+  "Pillow>=11,<13",
+  "PyMuPDF>=1.26,<2",
+  "python-multipart>=0.0.20,<1",
+  "uvicorn>=0.34,<1",
+]
 all = [
   "EbookLib>=0.19,<1",
   "fastapi>=0.115,<1",
   "mcp>=1.20,<2",
   "Pillow>=11,<13",
   "PyMuPDF>=1.26,<2",
+  "python-multipart>=0.0.20,<1",
   "uvicorn>=0.34,<1",
 ]
 
