@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -85,18 +86,42 @@ class WorkbenchService:
         max_mb: int = 80,
     ) -> dict:
         self.initialize()
-        cache_dir = self.library.root / ".workbench/download-cache"
-        result = self.zlibrary.download(
-            book_id, book_hash, cache_dir, account=account, max_mb=max_mb
+        job_id = f"download:{uuid.uuid4().hex}"
+        self.library.record_job(
+            job_id,
+            kind="download",
+            status="running",
+            progress=0.1,
+            payload={"id": book_id, "title": metadata.title, "account": account},
         )
-        path_value = result.get("path")
-        if not path_value:
-            raise RuntimeError("download result did not contain a path")
-        metadata.id = metadata.id or f"{book_id}:{book_hash}"
-        metadata.source = "zlibrary"
-        metadata.format = metadata.format or Path(path_value).suffix.lstrip(".")
-        ingested = self.library.ingest_file(Path(path_value), metadata, kind="original")
-        return {**result, "library": ingested}
+        cache_dir = self.library.root / ".workbench/download-cache"
+        try:
+            result = self.zlibrary.download(
+                book_id, book_hash, cache_dir, account=account, max_mb=max_mb
+            )
+            path_value = result.get("path")
+            if not path_value:
+                raise RuntimeError("download result did not contain a path")
+            metadata.id = metadata.id or f"{book_id}:{book_hash}"
+            metadata.source = "zlibrary"
+            metadata.format = metadata.format or Path(path_value).suffix.lstrip(".")
+            ingested = self.library.ingest_file(
+                Path(path_value), metadata, kind="original"
+            )
+        except Exception as error:
+            self.library.record_job(
+                job_id, kind="download", status="failed", error=str(error)
+            )
+            raise
+        tracked = self.library.record_job(
+            job_id,
+            kind="download",
+            status="completed",
+            progress=1,
+            book_id=ingested["book_id"],
+            result={"path": ingested["path"]},
+        )
+        return {**result, "library": ingested, "tracking": tracked}
 
     def ingest(
         self, path: Path, metadata: BookMetadata, *, kind: str = "original"
