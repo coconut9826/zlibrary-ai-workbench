@@ -1,6 +1,11 @@
 # zlibrary-tor
 
-[![CI](https://github.com/sl251/zlibrary-tor/actions/workflows/test.yml/badge.svg)](https://github.com/sl251/zlibrary-tor/actions/workflows/test.yml)
+> **书库工作台：** 本分支提供本地书架、搜索下载、PDF 转 EPUB、Ollama 分析、
+> AudioSmith 接入和 macOS 原生窗口。应用安装与分享见
+> [macOS 应用说明](docs/app-macos.zh-CN.md)，架构见
+> [架构与验收标准](docs/architecture.zh-CN.md)。
+
+[![Workbench CI](https://github.com/coconut9826/zlibrary-ai-workbench/actions/workflows/workbench.yml/badge.svg?branch=feat%2Fai-workbench)](https://github.com/coconut9826/zlibrary-ai-workbench/actions/workflows/workbench.yml)
 
 专为 AI Agent 设计的 Z-Library 技能与命令行工具：通过本地 Tor 代理访问 Z-Library onion 站，全部命令输出结构化 JSON 供 Agent 直接解析。下载具备配额感知能力，命中本地缓存时返回 `status: cached` 且不消耗每日下载额度，并提供分级失败诊断。采用标准 SKILL.md 格式，可直接挂载到 Claude Code、Codex CLI、Hermes Agent 与 Gemini CLI。
 

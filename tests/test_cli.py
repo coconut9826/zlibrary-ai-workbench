@@ -233,6 +233,69 @@ def test_pagination(cfg, monkeypatch, capsys):
     assert json.loads(capsys.readouterr().out)["page"] == 3
 
 
+def test_recommendations_use_dedicated_feed_and_book_details(cfg, monkeypatch, capsys):
+    calls = []
+
+    def handler(request):
+        calls.append(request.url.path)
+        if request.url.path.endswith("/recommended"):
+            return httpx.Response(
+                200,
+                json={
+                    "success": 1,
+                    "books": [{"id": "1", "hash": "abc", "title": "Science Fiction"}],
+                },
+            )
+        return httpx.Response(
+            200,
+            json={
+                "success": 1,
+                "book": {
+                    "id": "1",
+                    "hash": "abc",
+                    "title": "Science Fiction",
+                    "extension": "epub",
+                },
+            },
+        )
+
+    mock_network(monkeypatch, handler)
+    cli.cmd_recommendations(
+        cfg, cli.parser().parse_args(["recommendations", "--interests", "科幻"])
+    )
+    result = json.loads(capsys.readouterr().out)
+    assert result["books"][0]["extension"] == "epub"
+    assert result["source"] == "personalized"
+    assert calls == ["/eapi/user/book/recommended", "/eapi/book/1/abc"]
+
+
+def test_recommendations_fall_back_to_popular(cfg, monkeypatch, capsys):
+    def handler(request):
+        if request.url.path.endswith("/recommended"):
+            return httpx.Response(400, json={"error": "Access denied"})
+        if request.url.path.endswith("/most-popular"):
+            return httpx.Response(
+                200, json={"success": 1, "books": [{"id": "1", "hash": "abc"}]}
+            )
+        return httpx.Response(
+            200,
+            json={"success": 1, "book": {"id": "1", "hash": "abc", "title": "A"}},
+        )
+
+    mock_network(monkeypatch, handler)
+    cli.cmd_recommendations(cfg, cli.parser().parse_args(["recommendations"]))
+    assert json.loads(capsys.readouterr().out)["source"] == "popular"
+
+
+def test_http_error_includes_upstream_message(cfg, monkeypatch):
+    mock_network(
+        monkeypatch,
+        lambda _: httpx.Response(400, json={"error": "Access denied"}),
+    )
+    with pytest.raises(cli.CliError, match="API HTTP 400: Access denied"):
+        cli.request_json(cfg, "POST", "/eapi/book/search")
+
+
 @pytest.mark.parametrize(
     "message,reason",
     [

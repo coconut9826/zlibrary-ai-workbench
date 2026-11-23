@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:," />
+    <title>书库工作台</title>
+    <link rel="stylesheet" href="/assets/app.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">LOCAL FIRST · AI EBOOK WORKBENCH</p>
+        <h1>书库工作台</h1>
+      </div>
+      <div class="connection" id="connection">正在检查本地服务…</div>
+    </header>
+
+    <main>
+      <nav class="tabs" aria-label="工作台导航">
+        <button class="tab active" data-page="home">今日推荐</button>
+        <button class="tab" data-page="shelf">我的书架</button>
+        <button class="tab" data-page="discover">搜索与下载</button>
+        <button class="tab" data-page="downloads">下载列表</button>
+        <button class="tab" data-page="studio">转换与分析</button>
+        <button class="tab" data-page="tasks">任务</button>
+        <button class="tab" data-page="settings">设置</button>
+      </nav>
+
+      <section class="page active" id="home">
+        <div class="section-head"><div><p class="eyebrow">FOR YOU</p><h2>今日十本</h2></div><button id="refresh-recommendations" type="button">刷新推荐</button></div>
+        <div class="card"><h3>我的阅读方向</h3><div class="quick-searches" id="interest-tags"></div></div>
+        <p id="recommendation-status" class="hint" role="status"></p>
+        <div class="result-list" id="recommendation-list"></div>
+      </section>
+
+      <section class="page" id="shelf">
+        <div class="section-head">
+          <div><p class="eyebrow">LIBRARY</p><h2>我的书架</h2></div>
+          <label class="search"><span>⌕</span><input id="library-query" placeholder="书名、作者或 ISBN" /></label>
+        </div>
+        <div class="book-grid" id="book-grid"></div>
+        <p class="empty" id="books-empty">书架还是空的。可在“转换与分析”导入 PDF、EPUB 或文本。</p>
+      </section>
+
+      <section class="page" id="discover">
+        <div class="section-head"><div><p class="eyebrow">DISCOVER</p><h2>搜索与下载</h2></div></div>
+        <div class="card login-card">
+          <div class="login-head"><div><h3>Z-Library 登录</h3><p id="zlibrary-status">正在读取本地账号状态…</p></div><button type="button" id="tor-check">检查 Tor</button></div>
+          <p class="network-status" id="tor-status">Tor：尚未检测</p>
+          <label id="account-picker-wrap" class="account-picker" hidden>已登录账号<select id="account-picker"></select></label>
+          <form id="login-form" class="inline-form login-form">
+            <label>账号别名<input name="account" value="default" pattern="[A-Za-z0-9_\-]+" /></label>
+            <label>邮箱<input required type="email" name="email" autocomplete="username" /></label>
+            <label>密码<input type="password" name="password" autocomplete="current-password" placeholder="已记住时可留空" /></label>
+            <label class="check"><input type="checkbox" name="remember_password" />记住密码（macOS 钥匙串）</label>
+            <button class="primary" id="login-submit" type="submit">登录</button>
+          </form>
+          <p class="hint">通过“账号别名”可添加多个账号；上方下拉菜单可切换已登录账号。会话凭证由 Z-Library 核心本地保存；密码仅保存到 macOS 钥匙串，不会写入工作台配置、数据库或日志。</p>
+        </div>
+        <div class="card form-card">
+          <form id="search-form" class="inline-form">
+            <label>关键词<input required name="query" placeholder="例如：三体" /></label>
+            <label>语言<input name="language" placeholder="Chinese" /></label>
+            <label>格式<select name="extension"><option value="">全部</option><option>epub</option><option>pdf</option><option>mobi</option></select></label>
+            <button class="primary" id="search-submit">搜索</button>
+          </form>
+          <p class="hint">Tor 默认使用本机 SOCKS5：127.0.0.1:9050。下载每本书前仍须在此界面单独确认。</p>
+        </div>
+        <section class="discover-guides" aria-label="分类与推荐搜索">
+          <article class="card">
+            <h3>分类浏览</h3>
+            <div class="quick-searches">
+              <button type="button" data-query="科幻" data-language="Chinese">科幻</button>
+              <button type="button" data-query="推理" data-language="Chinese">推理</button>
+              <button type="button" data-query="历史" data-language="Chinese">历史</button>
+              <button type="button" data-query="心理学" data-language="Chinese">心理学</button>
+              <button type="button" data-query="programming" data-language="English">编程</button>
+              <button type="button" data-query="business" data-language="English">商业</button>
+            </div>
+          </article>
+          <article class="card">
+            <h3>推荐搜索</h3>
+            <div class="quick-searches">
+              <button type="button" data-query="award winners" data-language="English" data-extension="epub">获奖作品</button>
+              <button type="button" data-query="classic literature" data-language="English" data-extension="epub">经典文学</button>
+              <button type="button" data-query="人工智能" data-language="Chinese" data-extension="pdf">人工智能</button>
+              <button type="button" data-query="设计" data-language="Chinese" data-extension="pdf">设计参考</button>
+            </div>
+          </article>
+        </section>
+        <div class="result-list" id="search-results"></div>
+        <p id="search-status" class="hint" role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="page" id="studio">
+        <div class="section-head"><div><p class="eyebrow">STUDIO</p><h2>转换与分析</h2></div></div>
+        <div class="studio-grid">
+          <article class="card">
+            <h3>PDF 转 EPUB</h3>
+            <p>图片与文字同步保留。扫描件或复杂版式建议使用视觉保真模式。</p>
+            <form id="convert-form" class="stacked-form">
+              <label>来源<select class="source-choice" name="source"><option value="library">从内置书架选择</option><option value="external">从电脑导入</option></select></label>
+              <label class="library-source">书架中的 PDF<select name="library_file" class="library-file" data-accept="pdf"><option value="">正在读取书架…</option></select></label>
+              <label class="external-source" hidden>PDF 文件<input type="file" name="file" accept="application/pdf" /></label>
+              <label>书名<input required name="title" placeholder="书名" /></label>
+              <label>作者<input name="author" placeholder="作者（可选）" /></label>
+              <label>语言<input name="language" value="zh-CN" /></label>
+              <label>转换模式<select name="mode"><option value="auto">自动判断</option><option value="reflow">可重排文字</option><option value="visual">视觉保真</option></select></label>
+              <button class="primary">开始转换</button>
+            </form>
+          </article>
+          <article class="card">
+            <h3>本地 AI 总结与导图</h3>
+            <p>使用 Ollama 生成总结报告、分类和 Mermaid 导图。</p>
+            <form id="summary-form" class="stacked-form">
+              <label>来源<select class="source-choice" name="source"><option value="library">从内置书架选择</option><option value="external">从电脑导入</option></select></label>
+              <label class="library-source">书架中的书籍<select name="library_file" class="library-file" data-accept="pdf,epub,txt,md,markdown"><option value="">正在读取书架…</option></select></label>
+              <label class="external-source" hidden>文件<input type="file" name="file" accept=".pdf,.epub,.txt,.md,.markdown" /></label>
+              <label>书名<input name="title" placeholder="书名（可选）" /></label>
+              <label>作者<input name="author" placeholder="作者（可选）" /></label>
+              <button class="primary">生成报告</button>
+            </form>
+          </article>
+          <article class="card wide">
+            <h3>AudioSmith 有声书</h3>
+            <p>将 EPUB、TXT、Markdown 或 DOCX 创建为 AudioSmith 有声书项目。渲染前仍由你明确启动。</p>
+            <form id="audio-form" class="inline-form">
+              <label>来源<select class="source-choice" name="source"><option value="library">从内置书架选择</option><option value="external">从电脑导入</option></select></label>
+              <label class="library-source">书架中的书籍<select name="library_file" class="library-file" data-accept="epub,txt,md,markdown,docx"><option value="">正在读取书架…</option></select></label>
+              <label class="external-source" hidden>文件<input type="file" name="file" accept=".epub,.txt,.md,.markdown,.docx" /></label>
+              <label>书名<input required name="title" /></label>
+              <label>旁白<input name="voice" placeholder="例如 Serena" /></label>
+              <button class="primary">创建有声书项目</button>
+            </form>
+          </article>
+        </div>
+      </section>
+
+      <section class="page" id="downloads">
+        <div class="section-head"><div><p class="eyebrow">DOWNLOADS</p><h2>下载列表</h2></div><button id="refresh-downloads" type="button">刷新</button></div>
+        <div id="download-list" class="task-list"></div>
+        <p class="empty" id="downloads-empty">暂无下载任务。</p>
+      </section>
+
+      <section class="page" id="tasks">
+        <div class="section-head"><div><p class="eyebrow">ACTIVITY</p><h2>任务中心</h2></div><button id="refresh-tasks">刷新</button></div>
+        <div class="task-list" id="task-list"></div>
+        <p class="empty" id="tasks-empty">暂无任务。</p>
+      </section>
+
+      <section class="page" id="settings">
+        <div class="section-head"><div><p class="eyebrow">SETTINGS</p><h2>存储与命名</h2></div></div>
+        <form id="settings-form" class="settings-form card">
+          <label class="full">书库根目录<input required name="library_root" /></label>
+          <label>原始下载目录<input required name="downloads" /></label>
+          <label>转换文件目录<input required name="converted" /></label>
+          <label>有声书目录<input required name="audiobooks" /></label>
+          <label>报告目录<input required name="reports" /></label>
+          <label class="full">自动命名模板<input required name="naming_template" /><small>可用字段：title、author、year、language、format、publisher、isbn、id</small></label>
+          <label>同名处理<select name="collision"><option value="suffix">自动追加序号</option><option value="error">提示冲突</option><option value="reuse">复用已有文件</option></select></label>
+          <label>Ollama 模型<input required name="ollama_model" /></label>
+          <label>默认 AudioSmith 旁白<input name="audiosmith_voice" /></label>
+          <label>默认 AudioSmith 模型<input name="audiosmith_model" /></label>
+          <button class="primary">保存设置</button>
+        </form>
+      </section>
+    </main>
+
+    <aside id="toast" role="status" aria-live="polite"></aside>
+    <script src="/assets/app.js"></script>
+    <script src="/assets/ui.js"></script>
+  </body>
+</html>

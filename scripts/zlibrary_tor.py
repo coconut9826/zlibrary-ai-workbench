@@ -19,6 +19,8 @@ import sys
 import tempfile
 import time
 import warnings
+from concurrent.futures import ThreadPoolExecutor
+from datetime import date
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
 
@@ -637,8 +639,12 @@ def request_json(
             "API returned a non-object JSON response", reason="invalid_response"
         )
     if response.status_code >= 400:
+        detail = payload.get("error")
+        message = f"API HTTP {response.status_code}"
+        if isinstance(detail, str) and detail.strip():
+            message += f": {detail.strip()[:200]}"
         raise CliError(
-            f"API HTTP {response.status_code}",
+            message,
             reason="api_http_error",
             status_code=response.status_code,
         )
@@ -1349,6 +1355,106 @@ def cmd_search(cfg: dict, args) -> None:
     emit({"ok": True, "page": args.page, "count": len(books), "books": books})
 
 
+RECOMMENDATION_TERMS = {
+    "科幻": ("科幻", "science fiction", "sci-fi"),
+    "推理": ("推理", "mystery", "detective"),
+    "历史": ("历史", "history", "historical"),
+    "文学": ("文学", "literature", "novel"),
+    "心理学": ("心理", "psychology"),
+    "人工智能": ("人工智能", "artificial intelligence", "machine learning"),
+    "设计": ("设计", "design"),
+    "商业": ("商业", "business", "management"),
+    "自然科学": ("自然科学", "physics", "biology", "chemistry"),
+    "传记": ("传记", "biography", "memoir"),
+}
+
+
+def cmd_recommendations(cfg: dict, args) -> None:
+    name, account = resolve_account(cfg, None)
+    source_cfg = account_settings(cfg, name, account)
+    source = "personalized" if account else "popular"
+    if account:
+        try:
+            payload = request_json(
+                source_cfg,
+                "GET",
+                "/eapi/user/book/recommended",
+                authenticated=True,
+            )
+        except CliError:
+            source = "popular"
+            payload = request_json(cfg, "GET", "/eapi/book/most-popular")
+            source_cfg = cfg
+    else:
+        payload = request_json(cfg, "GET", "/eapi/book/most-popular")
+    raw_books = payload.get("books")
+    if not isinstance(raw_books, list):
+        raise CliError("invalid recommendations response", reason="invalid_response")
+    interests = [
+        item for item in args.interests.split(",") if item in RECOMMENDATION_TERMS
+    ]
+    terms = tuple(term for item in interests for term in RECOMMENDATION_TERMS[item])
+    candidates = [
+        book
+        for book in raw_books
+        if isinstance(book, dict)
+        and re.fullmatch(r"[A-Za-z0-9_-]+", str(book.get("id", "")))
+        and re.fullmatch(r"[A-Za-z0-9_-]+", str(book.get("hash", "")))
+    ]
+    if candidates:
+        offset = date.today().toordinal() % len(candidates)
+        candidates = candidates[offset:] + candidates[:offset]
+    candidates.sort(
+        key=lambda book: any(
+            term in f"{book.get('title', '')} {book.get('author', '')}".lower()
+            for term in terms
+        ),
+        reverse=True,
+    )
+    unique = {}
+    for book in candidates:
+        key = (
+            str(book.get("title", "")).strip().lower(),
+            str(book.get("author", "")).strip().lower(),
+        )
+        unique.setdefault(key, book)
+    candidates = list(unique.values())
+
+    def details(book: dict) -> dict | None:
+        try:
+            result = request_json(
+                source_cfg,
+                "GET",
+                f"/eapi/book/{book['id']}/{book['hash']}",
+                authenticated=(source == "personalized"),
+            ).get("book")
+            return result if isinstance(result, dict) else None
+        except CliError:
+            return None
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        books = [book for book in executor.map(details, candidates[:15]) if book]
+    if candidates and not books:
+        raise CliError("recommendation details unavailable", reason="invalid_response")
+    books = [
+        {
+            key: book.get(key)
+            for key in (
+                "id",
+                "hash",
+                "title",
+                "author",
+                "year",
+                "language",
+                "extension",
+                "filesizeString",
+            )
+        }
+        for book in books[:10]
+    ]
+    emit({"ok": True, "source": source, "count": len(books), "books": books})
+
+
 def cmd_accounts(cfg: dict, args) -> None:
     sub = getattr(args, "accounts_command", None)
     if sub == "list":
@@ -1698,6 +1804,9 @@ def download_stream(cfg: dict, url: str, output: Path, max_bytes: int) -> int:
                 raise CliError(
                     "invalid or oversized Content-Length", reason="invalid_download"
                 )
+            progress_file = os.environ.get("ZLIBRARY_PROGRESS_FILE", "")
+            progress_path = Path(progress_file) if progress_file else None
+            last_progress = 0.0
             written = 0
             fd, name = tempfile.mkstemp(
                 dir=output.parent, prefix=".zlib-", suffix=".part"
@@ -1712,6 +1821,11 @@ def download_stream(cfg: dict, url: str, output: Path, max_bytes: int) -> int:
                                 "download exceeds size limit", reason="size_limit"
                             )
                         handle.write(chunk)
+                        if progress_path and time.monotonic() - last_progress >= 0.25:
+                            _write_download_progress(
+                                progress_path, written, int(length or 0)
+                            )
+                            last_progress = time.monotonic()
                     if not written or (length is not None and written != int(length)):
                         raise CliError(
                             "empty or incomplete download", reason="incomplete_download"
@@ -1719,10 +1833,23 @@ def download_stream(cfg: dict, url: str, output: Path, max_bytes: int) -> int:
                     handle.flush()
                     os.fsync(handle.fileno())
                 temporary.replace(output)
+                if progress_path:
+                    _write_download_progress(progress_path, written, int(length or 0))
             finally:
                 temporary.unlink(missing_ok=True)
             return written
     raise CliError("download redirect failure")
+
+
+def _write_download_progress(path: Path, written: int, total: int) -> None:
+    temporary = path.with_suffix(".tmp")
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temporary.write_text(json.dumps({"bytes_done": written, "bytes_total": total}))
+        temporary.replace(path)
+    except OSError:
+        with contextlib.suppress(OSError):
+            temporary.unlink(missing_ok=True)
 
 
 def origin(url: str) -> tuple:
@@ -2034,6 +2161,9 @@ def parser() -> argparse.ArgumentParser:
     search.add_argument("--extension", default="")
     search.add_argument("--account")
 
+    recommendations = commands.add_parser("recommendations")
+    recommendations.add_argument("--interests", default="")
+
     download = commands.add_parser("download")
     download.add_argument("--id", type=identifier, required=True)
     download.add_argument("--hash", type=identifier, required=True)
@@ -2077,6 +2207,7 @@ COMMANDS = {
     "register": cmd_register,
     "profile": cmd_profile,
     "search": cmd_search,
+    "recommendations": cmd_recommendations,
     "download": cmd_download,
     "accounts": cmd_accounts,
     "domains": cmd_domains,
