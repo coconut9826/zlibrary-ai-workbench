@@ -11,6 +11,8 @@ const api = async (path, options = {}) => {
 let toastTimer;
 let shelfBooks = [];
 let searchSequence = 0;
+const interests = ['科幻', '推理', '历史', '文学', '心理学', '人工智能', '设计', '商业', '自然科学', '传记'];
+let selectedInterests = JSON.parse(localStorage.getItem('workbench-interests') || '["科幻","历史"]');
 const toast = (message, error = false) => {
   const node = $('#toast'); node.textContent = message; node.className = `show${error ? ' error' : ''}`;
   clearTimeout(toastTimer); toastTimer = setTimeout(() => { node.className = ''; }, 4200);
@@ -21,7 +23,7 @@ async function loadBooks() {
   const query = $('#library-query').value.trim();
   const data = await api(`/v1/library?query=${encodeURIComponent(query)}`);
   const grid = $('#book-grid');
-  grid.innerHTML = data.books.map((book) => `<article class="book-card"><h3>${escaped(book.title)}</h3><p>${escaped(book.author || '作者未知')} ${book.year ? `· ${escaped(book.year)}` : ''}</p><div class="chips">${(book.categories || []).map((item) => `<span class="chip">${escaped(item)}</span>`).join('')}${(book.files || []).map((file) => `<span class="chip">${escaped(file.format)}</span>`).join('')}</div><p>${(book.files || []).length} 个文件版本</p></article>`).join('');
+  grid.innerHTML = data.books.map((book) => `<article class="book-card">${bookCover(book.title, book.cover_path ? `/v1/library/${book.id}/cover` : '')}<div><h3 title="${escaped(book.title)}">${escaped(book.title)}</h3><p>${escaped(book.author || '作者未知')} ${book.year ? `· ${escaped(book.year)}` : ''}</p><div class="chips">${(book.categories || []).map((item) => `<span class="chip">${escaped(item)}</span>`).join('')}${(book.files || []).map((file) => `<span class="chip">${escaped(String(file.format).toUpperCase())}</span>`).join('')}</div><p>${(book.files || []).length} 个文件版本</p></div></article>`).join('');
   $('#books-empty').hidden = data.books.length > 0;
   shelfBooks = data.books;
   populateLibrarySources();
@@ -30,7 +32,7 @@ async function loadTasks() {
   const data = await api('/v1/jobs');
   const labels = {download:'下载', audiobook_project:'有声书项目', audiobook_render:'有声书渲染'};
   const states = {running:'进行中', completed:'已完成', failed:'失败', prepared:'已准备', queued:'排队中'};
-  $('#task-list').innerHTML = data.jobs.map((job) => `<article class="task"><strong>${escaped(labels[job.kind] || job.kind)} · ${escaped(job.payload.title || job.payload.project_id || job.id)}</strong><p>${escaped(states[job.status] || job.status)} · ${Math.round((job.progress || 0) * 100)}%</p>${job.error ? `<p class="task-error">${escaped(job.error)}</p>` : ''}</article>`).join('');
+  $('#task-list').innerHTML = data.jobs.map((job) => `<article class="task"><strong>${escaped(labels[job.kind] || job.kind)} · ${escaped(job.payload.title || job.payload.project_id || job.id)}</strong><p>${escaped(states[job.status] || job.status)}${job.kind === 'download' ? '' : ` · ${Math.round((job.progress || 0) * 100)}%`}</p>${job.error ? `<p class="task-error">${escaped(job.error)}</p>` : ''}</article>`).join('');
   $('#tasks-empty').hidden = data.jobs.length > 0;
 }
 async function upload(file) {
@@ -63,7 +65,7 @@ function syncSourceMode(form) { const library = form.elements.source.value === '
 function fillMetadataFromShelf(form) { const select = form.elements.library_file; const bookId = Number(select.options[select.selectedIndex]?.dataset.book); const book = shelfBooks.find((item) => item.id === bookId); if (!book) return; if (form.elements.title) form.elements.title.value = book.title || ''; if (form.elements.author) form.elements.author.value = book.author || ''; if (form.elements.language && book.language) form.elements.language.value = book.language; }
 async function sourcePath(form) { if (form.elements.source.value === 'library') { const path = form.elements.library_file.value; if (!path) throw new Error('请从内置书架选择一个文件，或切换为从电脑导入。'); return path; } const file = form.elements.file.files[0]; if (!file) throw new Error('请选择要从电脑导入的文件。'); const formats = form.elements.library_file.dataset.accept.split(','); if (!formats.includes(file.name.split('.').pop().toLowerCase())) throw new Error('文件格式与当前功能不兼容。'); if (file.size > 512 * 1024 * 1024) throw new Error('文件不能超过 512 MiB。'); return upload(file); }
 
-document.querySelectorAll('.tab').forEach((button) => button.addEventListener('click', () => { document.querySelectorAll('.tab,.page').forEach((node) => node.classList.remove('active')); button.classList.add('active'); $(`#${button.dataset.page}`).classList.add('active'); }));
+document.querySelectorAll('.tab').forEach((button) => button.addEventListener('click', () => { document.querySelectorAll('.tab,.page').forEach((node) => node.classList.remove('active')); button.classList.add('active'); $(`#${button.dataset.page}`).classList.add('active'); if (button.dataset.page === 'downloads') loadDownloads().catch((error) => toast(error.message,true)); }));
 document.querySelectorAll('.source-choice').forEach((select) => select.addEventListener('change', () => syncSourceMode(select.form)));
 document.querySelectorAll('.library-file').forEach((select) => select.addEventListener('change', () => fillMetadataFromShelf(select.form)));
 $('#library-query').addEventListener('input', () => loadBooks().catch((error) => toast(error.message,true)));
@@ -108,22 +110,17 @@ $('#search-form').addEventListener('submit', async (event) => {
     const data = await api('/v1/books/search', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(Object.fromEntries(new FormData(form))),
+      body: JSON.stringify({...Object.fromEntries(new FormData(form)),limit:20}),
     });
     if (sequence !== searchSequence) return;
-    $('#search-results').innerHTML = (data.books || []).map((book) => `<article class="result card"><div><strong>${escaped(book.title)}</strong><p>${escaped(book.author || '作者未知')} · ${escaped(book.year || '年份未知')} · ${escaped(book.language || '语言未知')}</p><div class="chips"><span class="chip">${escaped(book.extension || '格式未知')}</span>${book.filesizeString ? `<span class="chip">${escaped(book.filesizeString)}</span>` : ''}</div></div><button data-book="${encodeURIComponent(JSON.stringify(book))}">确认下载</button></article>`).join('') || '<p class="empty">没有搜索结果。</p>';
-    status.textContent = `找到 ${data.books?.length || 0} 条结果`;
-    document.querySelectorAll('[data-book]').forEach((downloadButton) => {
-      downloadButton.addEventListener('click', () => {
-        downloadBook(JSON.parse(decodeURIComponent(downloadButton.dataset.book)), downloadButton);
-      });
-    });
+    renderResults($('#search-results'), data.books || []);
+    status.textContent = `找到 ${groupedBooks(data.books || []).length} 本书、${data.books?.length || 0} 个格式版本`;
   } catch(error) { if (sequence === searchSequence) { status.textContent = `搜索失败：${error.message}`; toast(error.message,true); } }
   finally { if (sequence === searchSequence) button.disabled = false; }
 });
-async function downloadBook(book, button) { if (!confirm(`确认下载《${book.title}》？这可能消耗账号下载额度。`)) return; button.disabled = true; button.textContent = '下载中…'; try { const data = await api('/v1/books/download',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:String(book.id),hash:String(book.hash),confirmed:true,metadata:{title:book.title,author:book.author || '',year:String(book.year || ''),language:book.language || '',format:book.extension || ''}})}); toast(`已加入书架：${data.library.path}`); await Promise.all([loadBooks(),loadTasks()]); } catch(error) { toast(error.message,true); await loadTasks().catch(() => {}); } finally { button.disabled = false; button.textContent = '确认下载'; } }
+async function downloadBook(book, button, targetFormat) { if (!confirm(`确认下载《${book.title}》的 ${String(book.extension).toUpperCase()} 版本${targetFormat ? '，并在本机转换为 EPUB' : ''}？这可能消耗账号下载额度。`)) return; button.disabled = true; button.textContent = '排队中…'; try { await api('/v1/books/downloads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:String(book.id),hash:String(book.hash),confirmed:true,target_format:targetFormat || book.extension,metadata:{title:book.title,author:book.author || '',year:String(book.year || ''),language:book.language || '',format:book.extension || ''}})}); toast(`《${book.title}》已加入下载列表`); document.querySelector('[data-page="downloads"]').click(); } catch(error) { toast(error.message,true); } finally { button.disabled = false; button.textContent = '下载'; } }
 $('#convert-form').addEventListener('submit', async (event) => { event.preventDefault(); const form = event.currentTarget; try { const path = await sourcePath(form); const data = await api('/v1/convert/pdf-to-epub',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path,metadata:metadata(form),mode:form.elements.mode.value})}); toast(`转换完成：${data.library.path}`); loadBooks(); } catch(error) { toast(error.message,true); } });
 $('#summary-form').addEventListener('submit', async (event) => { event.preventDefault(); const form = event.currentTarget; try { const path = await sourcePath(form); const data = await api('/v1/analysis/report',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path,title:form.elements.title.value,author:form.elements.author.value})}); toast(`报告已生成：${data.markdown}`); loadBooks(); } catch(error) { toast(error.message,true); } });
 $('#audio-form').addEventListener('submit', async (event) => { event.preventDefault(); const form = event.currentTarget; try { const path = await sourcePath(form); const data = await api('/v1/audiosmith/audiobooks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path,metadata:{title:form.elements.title.value,author:form.elements.author.value,language:'',format:''},voice:form.elements.voice.value})}); toast(`有声书项目已创建：${data.project_id}`); loadTasks(); } catch(error) { toast(error.message,true); } });
 $('#settings-form').addEventListener('submit', async (event) => { event.preventDefault(); try { const payload = Object.fromEntries(new FormData(event.currentTarget)); await api('/v1/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); toast('设置已保存。'); loadBooks(); } catch(error) { toast(error.message,true); } });
-(async () => { document.querySelectorAll('.source-choice').forEach((select) => syncSourceMode(select.form)); try { const health = await api('/health'); $('#connection').textContent = `本机书库已连接 · ${health.library_root}`; } catch(error) { $('#connection').textContent = '本地服务不可用'; toast(error.message,true); return; } const results = await Promise.allSettled([loadBooks(), loadTasks(), loadSettings(), loadZLibraryStatus()]); const failures = results.filter((result) => result.status === 'rejected'); if (failures.length) toast(`${failures.length} 项数据加载失败：${failures[0].reason.message}`, true); })();
+(async () => { document.querySelectorAll('.source-choice').forEach((select) => syncSourceMode(select.form)); try { await api('/health'); $('#connection').textContent = '本机书库已连接'; } catch(error) { $('#connection').textContent = '本地服务不可用'; toast(error.message,true); return; } const results = await Promise.allSettled([loadBooks(), loadTasks(), loadSettings(), loadZLibraryStatus()]); const failures = results.filter((result) => result.status === 'rejected'); if (failures.length) toast(`${failures.length} 项数据加载失败：${failures[0].reason.message}`, true); })();

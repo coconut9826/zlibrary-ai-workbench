@@ -19,7 +19,14 @@ from .zlibrary import ZLibraryCommandError
 
 def create_app(config: AppConfig, *, config_path: Path | None = None):
     try:
-        from fastapi import FastAPI, File, HTTPException, Query, UploadFile
+        from fastapi import (
+            BackgroundTasks,
+            FastAPI,
+            File,
+            HTTPException,
+            Query,
+            UploadFile,
+        )
         from fastapi.responses import FileResponse
         from fastapi.staticfiles import StaticFiles
     except ImportError as error:
@@ -181,9 +188,64 @@ def create_app(config: AppConfig, *, config_path: Path | None = None):
             max_mb=request.max_mb,
         )
 
+    @app.post("/v1/books/downloads")
+    def queue_download(request: DownloadRequest, background: BackgroundTasks):
+        if not request.confirmed:
+            raise HTTPException(
+                status_code=409, detail={"message": "请先确认具体版本。"}
+            )
+        source_format = request.metadata.format.lower()
+        target_format = request.target_format.lower()
+        if (
+            target_format
+            and target_format != source_format
+            and not (target_format == "epub" and source_format == "pdf")
+        ):
+            raise HTTPException(
+                status_code=400, detail={"message": "目前仅支持本机 PDF 转 EPUB。"}
+            )
+        job_id = f"download:{uuid.uuid4().hex}"
+        metadata = request.metadata.metadata()
+        service.library.record_job(
+            job_id,
+            kind="download",
+            status="queued",
+            payload={
+                "title": metadata.title,
+                "id": request.id,
+                "account": request.account,
+                "target_format": target_format,
+                "source_format": source_format,
+            },
+        )
+
+        def run() -> None:
+            try:
+                service.download(
+                    book_id=request.id,
+                    book_hash=request.hash,
+                    metadata=metadata,
+                    account=request.account,
+                    max_mb=request.max_mb,
+                    job_id=job_id,
+                    target_format=target_format,
+                )
+            except Exception:
+                pass  # The job already records the actionable error.
+
+        background.add_task(run)
+        return {"ok": True, "job_id": job_id}
+
     @app.get("/v1/library")
     def library(query: str = "", limit: int = Query(default=100, ge=1, le=500)):
         return {"ok": True, "books": service.library.list_books(query, limit)}
+
+    @app.get("/v1/library/{book_id}/cover", include_in_schema=False)
+    def library_cover(book_id: int):
+        cover = service.library.root / ".workbench/covers" / f"{book_id}.png"
+        if not cover.is_file():
+            raise HTTPException(status_code=404, detail="cover unavailable")
+        return FileResponse(cover, media_type="image/png")
 
     @app.get("/v1/jobs")
     def jobs(limit: int = Query(default=100, ge=1, le=500)):

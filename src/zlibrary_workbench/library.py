@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Iterator
 
 from .config import AppConfig
+from .covers import extract_cover
 from .models import BookMetadata
 from .naming import render_name, resolve_collision
 
@@ -215,6 +216,18 @@ class LibraryStore:
                     _now(),
                 ),
             )
+        try:
+            cover = extract_cover(
+                path, self.root / ".workbench/covers" / f"{book_id}.png"
+            )
+            if cover:
+                with self.connect() as connection:
+                    connection.execute(
+                        "UPDATE books SET cover_path=? WHERE id=?",
+                        (str(cover), book_id),
+                    )
+        except (ImportError, OSError, ValueError, RuntimeError):
+            pass  # An unreadable cover must not invalidate an otherwise valid book.
         return {
             "book_id": book_id,
             "path": str(path),
@@ -248,6 +261,26 @@ class LibraryStore:
                         (item["id"],),
                     ).fetchall()
                 ]
+                if not item.get("cover_path"):
+                    for file in sorted(
+                        item["files"], key=lambda entry: entry["format"] != "epub"
+                    ):
+                        if file["format"] not in {"epub", "pdf"}:
+                            continue
+                        try:
+                            cover = extract_cover(
+                                Path(file["path"]),
+                                self.root / ".workbench/covers" / f"{item['id']}.png",
+                            )
+                        except (ImportError, OSError, ValueError, RuntimeError):
+                            continue
+                        if cover:
+                            item["cover_path"] = str(cover)
+                            connection.execute(
+                                "UPDATE books SET cover_path=? WHERE id=?",
+                                (str(cover), item["id"]),
+                            )
+                            break
                 result.append(item)
         return result
 

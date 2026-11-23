@@ -85,15 +85,23 @@ class WorkbenchService:
         metadata: BookMetadata,
         account: str = "auto",
         max_mb: int = 80,
+        job_id: str | None = None,
+        target_format: str = "",
     ) -> dict:
         self.initialize()
-        job_id = f"download:{uuid.uuid4().hex}"
+        job_id = job_id or f"download:{uuid.uuid4().hex}"
         self.library.record_job(
             job_id,
             kind="download",
             status="running",
             progress=0.1,
-            payload={"id": book_id, "title": metadata.title, "account": account},
+            payload={
+                "id": book_id,
+                "title": metadata.title,
+                "account": account,
+                "target_format": target_format,
+                "source_format": metadata.format,
+            },
         )
         cache_dir = self.library.root / ".workbench/download-cache"
         try:
@@ -109,6 +117,12 @@ class WorkbenchService:
             ingested = self.library.ingest_file(
                 Path(path_value), metadata, kind="original"
             )
+            if target_format == "epub" and metadata.format.lower() == "pdf":
+                self.library.record_job(
+                    job_id, kind="download", status="converting", progress=0.75
+                )
+                converted = self.convert_pdf(Path(ingested["path"]), metadata)
+                ingested = converted["library"]
         except Exception as error:
             self.library.record_job(
                 job_id, kind="download", status="failed", error=str(error)

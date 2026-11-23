@@ -32,6 +32,7 @@ class DownloadRequest(BaseModel):
     account: str = "auto"
     max_mb: int = Field(default=80, ge=1, le=512)
     confirmed: bool = False
+    target_format: str = ""
 
 
 class ConvertRequest(BaseModel):
